@@ -13,8 +13,6 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 ![Search](docs/interface-search.png)
 
-![About](docs/interface-about.png)
-
 ## Features
 
 - **Hierarchical Process Tree**: View processes in a parent-child tree structure
