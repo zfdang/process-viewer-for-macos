@@ -219,15 +219,6 @@ enum ProcessFetcher {
         return processes.compactMap { filterNode($0) }
     }
     
-    /// Count all processes in hierarchy
-    static func countAllProcesses(in processes: [ProcessInfo]) -> Int {
-        var count = 0
-        for proc in processes {
-            count += 1
-            count += countAllProcesses(in: proc.children)
-        }
-        return count
-    }
 }
 
 // MARK: - Process Monitor (MainActor)
@@ -238,7 +229,6 @@ class ProcessMonitor: ObservableObject {
     @Published var processes: [ProcessInfo] = []
     @Published var flatProcesses: [ProcessInfo] = []
     @Published var isLoading = false
-    @Published var processCount = 0
     
     private var timer: Timer?
     private var refreshInterval: TimeInterval = 3.0
@@ -306,7 +296,6 @@ class ProcessMonitor: ObservableObject {
         
         self.flatProcesses = fetchedProcesses
         self.processes = hierarchy
-        self.processCount = fetchedProcesses.count
         self.isLoading = false
     }
     
@@ -323,7 +312,7 @@ class ProcessMonitor: ObservableObject {
             case .my:
                 result = result.filter { $0.user == currentUser }
             case .system:
-                result = result.filter { $0.user == "root" || $0.user == "_windowserver" || $0.user.hasPrefix("_") }
+                result = result.filter { $0.user != currentUser }
             case .apps:
                 result = result.filter { $0.command.contains("/Applications/") || $0.command.contains(".app/") }
             }
@@ -356,7 +345,7 @@ class ProcessMonitor: ObservableObject {
         case .my:
             result = ProcessFetcher.filterTree(result) { $0.user == currentUser }
         case .system:
-            result = ProcessFetcher.filterTree(result) { $0.user == "root" || $0.user == "_windowserver" || $0.user.hasPrefix("_") }
+            result = ProcessFetcher.filterTree(result) { $0.user != currentUser }
         case .apps:
             result = ProcessFetcher.filterTree(result) { $0.command.contains("/Applications/") || $0.command.contains(".app/") }
         }
@@ -375,8 +364,9 @@ class ProcessMonitor: ObservableObject {
     }
     
     /// Get filtered flat process count
+    /// Get filtered flat process count
     func filteredCount(filter: ProcessFilter, searchText: String) -> Int {
-        let filtered = filteredProcesses(filter: filter, searchText: searchText)
-        return ProcessFetcher.countAllProcesses(in: filtered)
+        // Always use flat results for counting to ensure accuracy (My + System = All)
+        return filteredProcesses(filter: filter, searchText: searchText, hierarchical: false).count
     }
 }

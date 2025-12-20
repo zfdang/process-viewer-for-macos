@@ -37,14 +37,12 @@ class OutlineViewReference: ObservableObject {
 class ProcessNode: NSObject {
     let process: ProcessInfo
     var children: [ProcessNode]
-    weak var parent: ProcessNode?
     
-    init(process: ProcessInfo, parent: ProcessNode? = nil) {
+    init(process: ProcessInfo) {
         self.process = process
-        self.parent = parent
         self.children = []
         super.init()
-        self.children = process.children.map { ProcessNode(process: $0, parent: self) }
+        self.children = process.children.map { ProcessNode(process: $0) }
     }
     
     var isExpandable: Bool {
@@ -561,17 +559,15 @@ struct ProcessOutlineView: NSViewRepresentable {
                 return cachedIcon
             }
             
-            var icon: NSImage = defaultIcon
-            
-            // Try to find .app bundle
-            if let range = path.range(of: ".app") {
-                let appPath = String(path[..<range.upperBound])
-                icon = NSWorkspace.shared.icon(forFile: appPath)
+            // Try to get icon using standard utility
+            if let icon = ProcessUtils.getAppIcon(for: path) {
+                iconCache[path] = icon
+                return icon
             }
             
-            // Cache and return
-            iconCache[path] = icon
-            return icon
+            // Fallback to default icon
+            iconCache[path] = defaultIcon
+            return defaultIcon
         }
         
         private func cpuColor(_ usage: Double) -> NSColor {

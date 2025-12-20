@@ -11,8 +11,6 @@
 		002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102 /* ContentView.swift */; };
 		003 /* ProcessInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103 /* ProcessInfo.swift */; };
 		004 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104 /* ProcessMonitor.swift */; };
-		005 /* ProcessTreeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105 /* ProcessTreeView.swift */; };
-		006 /* ProcessRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 106 /* ProcessRowView.swift */; };
 		007 /* FilterToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107 /* FilterToolbar.swift */; };
 		008 /* ProcessUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108 /* ProcessUtils.swift */; };
 		009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109 /* Assets.xcassets */; };
@@ -20,13 +18,11 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		100 /* ProcessViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ProcessViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		100 /* ProcessViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = ProcessViewer.app; path = "Process Viewer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		101 /* ProcessViewerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessViewerApp.swift; sourceTree = "<group>"; };
 		102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		103 /* ProcessInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessInfo.swift; sourceTree = "<group>"; };
 		104 /* ProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessMonitor.swift; sourceTree = "<group>"; };
-		105 /* ProcessTreeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessTreeView.swift; sourceTree = "<group>"; };
-		106 /* ProcessRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRowView.swift; sourceTree = "<group>"; };
 		107 /* FilterToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterToolbar.swift; sourceTree = "<group>"; };
 		108 /* ProcessUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessUtils.swift; sourceTree = "<group>"; };
 		109 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -87,8 +83,6 @@
 			isa = PBXGroup;
 			children = (
 				102 /* ContentView.swift */,
-				105 /* ProcessTreeView.swift */,
-				106 /* ProcessRowView.swift */,
 				107 /* FilterToolbar.swift */,
 				111 /* ProcessOutlineView.swift */,
 			);
@@ -176,8 +170,6 @@
 				002 /* ContentView.swift in Sources */,
 				003 /* ProcessInfo.swift in Sources */,
 				004 /* ProcessMonitor.swift in Sources */,
-				005 /* ProcessTreeView.swift in Sources */,
-				006 /* ProcessRowView.swift in Sources */,
 				007 /* FilterToolbar.swift in Sources */,
 				008 /* ProcessUtils.swift in Sources */,
 				010 /* ProcessOutlineView.swift in Sources */,
@@ -321,9 +313,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_CFBundleDisplayName = "Process Viewer";
 				INFOPLIST_KEY_CFBundleName = "Process Viewer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -351,9 +343,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_CFBundleDisplayName = "Process Viewer";
 				INFOPLIST_KEY_CFBundleName = "Process Viewer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
