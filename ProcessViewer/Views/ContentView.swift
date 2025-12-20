@@ -7,9 +7,11 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var selectedProcess: ProcessInfo?
     @State private var outlineViewRef = OutlineViewReference()
+    @State private var rowSize: RowSize = .medium
+    @State private var showHierarchy: Bool = true
     
     private var filteredProcesses: [ProcessInfo] {
-        monitor.filteredProcesses(filter: selectedFilter, searchText: searchText)
+        monitor.filteredProcesses(filter: selectedFilter, searchText: searchText, hierarchical: showHierarchy)
     }
     
     private var filteredCount: Int {
@@ -22,6 +24,8 @@ struct ContentView: View {
             FilterToolbar(
                 selectedFilter: $selectedFilter,
                 searchText: $searchText,
+                rowSize: $rowSize,
+                showHierarchy: $showHierarchy,
                 processCount: filteredCount,
                 onRefresh: {
                     Task {
@@ -61,8 +65,11 @@ struct ContentView: View {
                 ProcessOutlineView(
                     processes: filteredProcesses,
                     selectedProcess: $selectedProcess,
-                    outlineViewRef: outlineViewRef
+                    outlineViewRef: outlineViewRef,
+                    rowSize: rowSize,
+                    showHierarchy: showHierarchy
                 )
+                .id("\(selectedFilter.rawValue)-\(searchText)-\(rowSize.rawValue)-\(showHierarchy)")
             }
             
             // Status bar

@@ -1,4 +1,4 @@
-# ProcessViewer
+# Process Viewer
 
 A native macOS application for viewing and monitoring system processes with a hierarchical tree display.
 

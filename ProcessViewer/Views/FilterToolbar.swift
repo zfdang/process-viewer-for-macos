@@ -1,33 +1,26 @@
 import SwiftUI
 
+/// Row size for the outline view
+enum RowSize: String, CaseIterable {
+    case small = "S"
+    case medium = "M"
+    case large = "L"
+}
+
 /// Filter toolbar with filter buttons, search field, and action buttons
 struct FilterToolbar: View {
     @Binding var selectedFilter: ProcessFilter
     @Binding var searchText: String
+    @Binding var rowSize: RowSize
+    @Binding var showHierarchy: Bool
     let processCount: Int
     let onRefresh: () -> Void
     let onExpandAll: () -> Void
     let onCollapseAll: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Filter picker (Apps, My, System, All)
-            Picker("Filter", selection: $selectedFilter) {
-                ForEach(ProcessFilter.allCases) { filter in
-                    Text(filter.rawValue).tag(filter)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 280)
-            
-            // Process count (next to filter)
-            Text("\(processCount) processes")
-                .foregroundColor(.secondary)
-                .font(.callout)
-            
-            Spacer()
-            
-            // Search field (center-right area)
+        ZStack {
+            // Center: Search field (truly centered)
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
@@ -47,42 +40,93 @@ struct FilterToolbar: View {
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(6)
             
-            Divider()
-                .frame(height: 16)
-            
-            // Action buttons (right side)
-            HStack(spacing: 8) {
-                // Expand All button - custom icon
-                Button(action: onExpandAll) {
-                    Image("ExpandAll")
-                        .resizable()
-                        .renderingMode(.template)
-                        .frame(width: 20, height: 20)
+            // Left and Right sections
+            HStack(spacing: 12) {
+                // Left section: Filter picker and process count
+                HStack(spacing: 8) {
+                    Picker("Filter", selection: $selectedFilter) {
+                        ForEach(ProcessFilter.allCases) { filter in
+                            Text(filter.rawValue).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 280)
+                    
+                    Text("\(processCount) processes")
+                        .foregroundColor(.secondary)
+                        .font(.callout)
                 }
-                .buttonStyle(.borderless)
-                .help("Expand All")
                 
-                // Collapse All button - custom icon
-                Button(action: onCollapseAll) {
-                    Image("CollapseAll")
-                        .resizable()
-                        .renderingMode(.template)
-                        .frame(width: 20, height: 20)
+                Spacer()
+                
+                // Right section: Action buttons
+                HStack(spacing: 8) {
+                    // Hierarchy toggle button
+                    Button(action: { showHierarchy.toggle() }) {
+                        Image("HierarchyView")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.borderless)
+                    .background(showHierarchy ? Color.accentColor.opacity(0.2) : Color.clear)
+                    .cornerRadius(4)
+                    .help(showHierarchy ? "Switch to Flat View" : "Switch to Hierarchy View")
+                    
+                    // Expand All button
+                    Button(action: onExpandAll) {
+                        Image("ExpandAll")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(!showHierarchy)
+                    .opacity(showHierarchy ? 1.0 : 0.4)
+                    .help("Expand All")
+                    
+                    // Collapse All button
+                    Button(action: onCollapseAll) {
+                        Image("CollapseAll")
+                            .resizable()
+                            .renderingMode(.template)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(!showHierarchy)
+                    .opacity(showHierarchy ? 1.0 : 0.4)
+                    .help("Collapse All")
+                    
+                    Divider()
+                        .frame(height: 16)
+                    
+                    // Refresh button
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14))
+                    }
+                    .buttonStyle(.borderless)
+                    .keyboardShortcut("r", modifiers: .command)
+                    .help("Refresh (⌘R)")
+                    
+                    Divider()
+                        .frame(height: 16)
+                    
+                    // Row size buttons (Small, Medium, Large)
+                    HStack(spacing: 4) {
+                        ForEach(RowSize.allCases, id: \.self) { size in
+                            Button(action: { rowSize = size }) {
+                                Text(size.rawValue)
+                                    .font(.system(size: 13, weight: rowSize == size ? .bold : .regular))
+                                    .frame(width: 24, height: 24)
+                            }
+                            .buttonStyle(.borderless)
+                            .background(rowSize == size ? Color.accentColor.opacity(0.2) : Color.clear)
+                            .cornerRadius(4)
+                            .help(size == .small ? "Small rows" : size == .medium ? "Medium rows" : "Large rows")
+                        }
+                    }
                 }
-                .buttonStyle(.borderless)
-                .help("Collapse All")
-                
-                Divider()
-                    .frame(height: 16)
-                
-                // Refresh button
-                Button(action: onRefresh) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14))
-                }
-                .buttonStyle(.borderless)
-                .keyboardShortcut("r", modifiers: .command)
-                .help("Refresh (⌘R)")
             }
         }
         .padding(.horizontal, 12)

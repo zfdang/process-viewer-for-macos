@@ -7,12 +7,27 @@ import AppKit
 class OutlineViewReference: ObservableObject {
     weak var outlineView: NSOutlineView?
     
+    /// Expand all items in the tree
     func expandAll() {
         outlineView?.expandItem(nil, expandChildren: true)
     }
     
+    /// Collapse all children but keep root items (first level) expanded
     func collapseAll() {
-        outlineView?.collapseItem(nil, collapseChildren: true)
+        guard let outlineView = outlineView else { return }
+        
+        // Get the number of root items
+        let rootCount = outlineView.numberOfChildren(ofItem: nil)
+        
+        // For each root item, collapse its children but keep the root expanded
+        for i in 0..<rootCount {
+            if let rootItem = outlineView.child(i, ofItem: nil) {
+                // Collapse all children of this root item
+                outlineView.collapseItem(rootItem, collapseChildren: true)
+                // Keep the root item itself expanded (show first level)
+                outlineView.expandItem(rootItem, expandChildren: false)
+            }
+        }
     }
 }
 
@@ -57,6 +72,22 @@ struct ProcessOutlineView: NSViewRepresentable {
     let processes: [ProcessInfo]
     @Binding var selectedProcess: ProcessInfo?
     var outlineViewRef: OutlineViewReference
+    var rowSize: RowSize = .medium
+    var showHierarchy: Bool = true
+    
+    /// Signature to detect when process list actually changes
+    private var processSignature: String {
+        processes.map { String($0.id) }.joined(separator: ",")
+    }
+    
+    /// Get row height based on size setting
+    private var rowHeight: CGFloat {
+        switch rowSize {
+        case .small: return 20
+        case .medium: return 26
+        case .large: return 32
+        }
+    }
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -71,8 +102,8 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         let outlineView = NSOutlineView()
         outlineView.style = .plain
-        outlineView.rowSizeStyle = .medium  // Increased row height
-        outlineView.rowHeight = 24  // Explicit row height
+        outlineView.rowSizeStyle = .custom  // Use custom to allow explicit rowHeight
+        outlineView.rowHeight = rowHeight
         outlineView.usesAlternatingRowBackgroundColors = true
         outlineView.allowsMultipleSelection = false
         outlineView.allowsColumnReordering = true
@@ -155,33 +186,51 @@ struct ProcessOutlineView: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let outlineView = nsView.documentView as? NSOutlineView else { return }
         
-        // Save scroll position
-        let scrollPosition = nsView.contentView.bounds.origin
+        // Check if process list actually changed (filter/search change)
+        let currentSignature = processSignature
+        let isFilterChange = context.coordinator.lastProcessSignature != currentSignature
+        context.coordinator.lastProcessSignature = currentSignature
         
-        // Save current expanded state (by PID)
-        let expandedPIDs = context.coordinator.getExpandedPIDs()
+        // Only preserve state on auto-refresh (same data), not on filter/search change
+        var expandedPIDs: Set<pid_t> = []
+        var selectedPID: pid_t? = nil
+        var scrollPosition: CGPoint = .zero
         
-        // Save current selection (by PID)
-        let selectedPID = context.coordinator.getSelectedPID()
+        if !isFilterChange {
+            // Save state for auto-refresh
+            scrollPosition = nsView.contentView.bounds.origin
+            expandedPIDs = context.coordinator.getExpandedPIDs()
+            selectedPID = context.coordinator.getSelectedPID()
+        }
         
         // Update data
         context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
         context.coordinator.parent = self
         
+        // Apply current sort descriptor to new data
+        if let sortDescriptor = outlineView.sortDescriptors.first {
+            context.coordinator.applySortDescriptor(sortDescriptor)
+        }
+        
         // Reload data
         outlineView.reloadData()
         
-        // Restore expanded state
-        context.coordinator.restoreExpandedState(expandedPIDs)
-        
-        // Restore selection
-        if let pid = selectedPID {
-            context.coordinator.restoreSelection(pid)
+        if isFilterChange {
+            // Filter/search changed - expand first level, reset to top
+            for node in context.coordinator.rootNodes {
+                outlineView.expandItem(node, expandChildren: false)
+            }
+        } else {
+            // Auto-refresh - restore previous state
+            context.coordinator.restoreExpandedState(expandedPIDs)
+            
+            if let pid = selectedPID {
+                context.coordinator.restoreSelection(pid)
+            }
+            
+            nsView.contentView.scroll(to: scrollPosition)
+            nsView.reflectScrolledClipView(nsView.contentView)
         }
-        
-        // Restore scroll position
-        nsView.contentView.scroll(to: scrollPosition)
-        nsView.reflectScrolledClipView(nsView.contentView)
         
         // Update reference
         outlineViewRef.outlineView = outlineView
@@ -197,6 +246,9 @@ struct ProcessOutlineView: NSViewRepresentable {
         // Track expanded state - initialized with first level expanded
         private var expandedPIDs: Set<pid_t> = []
         private var hasInitialized = false
+        
+        // Track process list signature to detect filter changes
+        var lastProcessSignature: String = ""
         
         init(_ parent: ProcessOutlineView) {
             self.parent = parent
@@ -385,11 +437,20 @@ struct ProcessOutlineView: NSViewRepresentable {
         func outlineViewSelectionDidChange(_ notification: Notification) {
             guard let outlineView = notification.object as? NSOutlineView else { return }
             let selectedRow = outlineView.selectedRow
-            if selectedRow >= 0, let node = outlineView.item(atRow: selectedRow) as? ProcessNode {
-                parent.selectedProcess = node.process
-            } else {
-                parent.selectedProcess = nil
+            
+            // Wrap in async to avoid "Modifying state during view update" warning
+            DispatchQueue.main.async { [weak self] in
+                if selectedRow >= 0, let node = outlineView.item(atRow: selectedRow) as? ProcessNode {
+                    self?.parent.selectedProcess = node.process
+                } else {
+                    self?.parent.selectedProcess = nil
+                }
             }
+        }
+        
+        /// Apply sort descriptor to current nodes (used on initial load)
+        func applySortDescriptor(_ descriptor: NSSortDescriptor) {
+            sortNodes(&rootNodes, by: descriptor)
         }
         
         // Sortable columns
@@ -535,11 +596,21 @@ struct ProcessOutlineView: NSViewRepresentable {
         }
         
         @objc func expandAll(_ sender: Any?) {
-            outlineView?.expandItem(nil, expandChildren: true)
+            guard let outlineView = outlineView else { return }
+            // Context menu: operate on clicked/selected item only
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            if row >= 0, let item = outlineView.item(atRow: row) {
+                outlineView.expandItem(item, expandChildren: true)
+            }
         }
         
         @objc func collapseAll(_ sender: Any?) {
-            outlineView?.collapseItem(nil, collapseChildren: true)
+            guard let outlineView = outlineView else { return }
+            // Context menu: operate on clicked/selected item only
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            if row >= 0, let item = outlineView.item(atRow: row) {
+                outlineView.collapseItem(item, collapseChildren: true)
+            }
         }
     }
 }

@@ -1,0 +1,85 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for commit count
+      
+      - name: Get commit count for version
+        id: version
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          echo "count=${COMMIT_COUNT}" >> $GITHUB_OUTPUT
+          echo "tag=v1.0.${COMMIT_COUNT}" >> $GITHUB_OUTPUT
+          echo "Build number: ${COMMIT_COUNT}"
+      
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      
+      - name: Show Xcode version
+        run: xcodebuild -version
+      
+      - name: Build the app
+        run: |
+          xcodebuild -scheme ProcessViewer \
+            -configuration Release \
+            -archivePath build/ProcessViewer.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION=${{ steps.version.outputs.count }}
+      
+      - name: Export the app
+        run: |
+          mkdir -p build/export
+          cp -R build/ProcessViewer.xcarchive/Products/Applications/Process\ Viewer.app build/export/
+      
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "Process Viewer" \
+            -srcfolder build/export \
+            -ov -format UDZO \
+            "build/ProcessViewer-${{ steps.version.outputs.tag }}.dmg"
+      
+      - name: Create ZIP
+        run: |
+          cd build/export
+          zip -r "../ProcessViewer-${{ steps.version.outputs.tag }}.zip" "Process Viewer.app"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Process Viewer ${{ steps.version.outputs.tag }}
+          body: |
+            ## Process Viewer ${{ steps.version.outputs.tag }}
+            
+            Build #${{ steps.version.outputs.count }}
+            
+            ### Downloads
+            - **DMG**: ProcessViewer-${{ steps.version.outputs.tag }}.dmg
+            - **ZIP**: ProcessViewer-${{ steps.version.outputs.tag }}.zip
+            
+            ### Installation
+            1. Download the DMG or ZIP file
+            2. Open the DMG and drag "Process Viewer" to Applications, or extract the ZIP
+            3. Right-click the app and select "Open" (first time only, to bypass Gatekeeper)
+          files: |
+            build/ProcessViewer-${{ steps.version.outputs.tag }}.dmg
+            build/ProcessViewer-${{ steps.version.outputs.tag }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

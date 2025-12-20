@@ -262,7 +262,42 @@ class ProcessMonitor: ObservableObject {
     }
     
     /// Filter processes based on filter type
-    func filteredProcesses(filter: ProcessFilter, searchText: String) -> [ProcessInfo] {
+    func filteredProcesses(filter: ProcessFilter, searchText: String, hierarchical: Bool = true) -> [ProcessInfo] {
+        // For flat view, use flatProcesses as source
+        if !hierarchical {
+            var result = flatProcesses
+            
+            // Apply filter
+            switch filter {
+            case .all:
+                break
+            case .my:
+                result = result.filter { $0.user == currentUser }
+            case .system:
+                result = result.filter { $0.user == "root" || $0.user == "_windowserver" || $0.user.hasPrefix("_") }
+            case .apps:
+                result = result.filter { $0.command.contains("/Applications/") || $0.command.contains(".app/") }
+            }
+            
+            // Apply search
+            if !searchText.isEmpty {
+                let lowercasedSearch = searchText.lowercased()
+                result = result.filter {
+                    $0.name.lowercased().contains(lowercasedSearch) ||
+                    $0.command.lowercased().contains(lowercasedSearch) ||
+                    String($0.id).contains(searchText)
+                }
+            }
+            
+            // Return as flat list (processes with empty children)
+            return result.map { proc in
+                var flatProc = proc
+                flatProc.children = []
+                return flatProc
+            }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+        
+        // Hierarchical view
         var result = processes
         
         // Apply filter
