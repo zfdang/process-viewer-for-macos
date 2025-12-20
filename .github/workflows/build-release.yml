@@ -21,7 +21,7 @@ jobs:
         run: |
           COMMIT_COUNT=$(git rev-list --count HEAD)
           echo "count=${COMMIT_COUNT}" >> $GITHUB_OUTPUT
-          echo "tag=v1.0.${COMMIT_COUNT}" >> $GITHUB_OUTPUT
+          echo "tag=v${COMMIT_COUNT}" >> $GITHUB_OUTPUT
           echo "Build number: ${COMMIT_COUNT}"
       
       - name: Select Xcode version
