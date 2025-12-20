@@ -93,6 +93,10 @@ struct ContentView: View {
             // Start auto-refresh
             monitor.startAutoRefresh(interval: 3.0)
         }
+        .onDisappear {
+            // Stop auto-refresh to prevent crash on exit
+            monitor.stopAutoRefresh()
+        }
     }
 }
 

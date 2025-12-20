@@ -220,6 +220,11 @@ class ProcessMonitor: ObservableObject {
         }
     }
     
+    deinit {
+        timer?.invalidate()
+        timer = nil
+    }
+    
     /// Start automatic refresh with specified interval
     func startAutoRefresh(interval: TimeInterval = 3.0) {
         refreshInterval = interval

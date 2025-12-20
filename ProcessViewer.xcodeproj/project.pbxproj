@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		001 /* ProcessViewerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101; };
-		002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102; };
-		003 /* ProcessInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103; };
-		004 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104; };
-		005 /* ProcessTreeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105; };
-		006 /* ProcessRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 106; };
-		007 /* FilterToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107; };
-		008 /* ProcessUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108; };
-		009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109; };
-		010 /* ProcessOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111; };
+		001 /* ProcessViewerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101 /* ProcessViewerApp.swift */; };
+		002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102 /* ContentView.swift */; };
+		003 /* ProcessInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103 /* ProcessInfo.swift */; };
+		004 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104 /* ProcessMonitor.swift */; };
+		005 /* ProcessTreeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105 /* ProcessTreeView.swift */; };
+		006 /* ProcessRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 106 /* ProcessRowView.swift */; };
+		007 /* FilterToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107 /* FilterToolbar.swift */; };
+		008 /* ProcessUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108 /* ProcessUtils.swift */; };
+		009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109 /* Assets.xcassets */; };
+		010 /* ProcessOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111 /* ProcessOutlineView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -108,7 +108,7 @@
 /* Begin PBXNativeTarget section */
 		400 /* ProcessViewer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 500;
+			buildConfigurationList = 500 /* Build configuration list for PBXNativeTarget "ProcessViewer" */;
 			buildPhases = (
 				401 /* Sources */,
 				200 /* Frameworks */,
@@ -131,14 +131,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					400 = {
 						CreatedOnToolsVersion = 15.0;
 					};
 				};
 			};
-			buildConfigurationList = 601;
+			buildConfigurationList = 601 /* Build configuration list for PBXProject "ProcessViewer" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -221,6 +221,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -244,6 +245,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -283,6 +285,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -299,6 +302,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -312,6 +316,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -339,6 +344,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
