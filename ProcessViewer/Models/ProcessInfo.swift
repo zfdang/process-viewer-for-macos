@@ -49,15 +49,15 @@ struct ProcessInfo: Identifiable, Hashable {
     /// Generate formatted string for clipboard copy
     func formattedDescription() -> String {
         """
-        PID: \(id)
-        Name: \(name)
-        User: \(user)
-        CPU: \(String(format: "%.1f%%", cpuUsage))
-        Resident Memory: \(ProcessInfo.formatMemory(residentMemory))
-        Virtual Memory: \(ProcessInfo.formatMemory(virtualMemory))
-        Threads: \(threadCount)
-        Priority/Nice: \(priority)/\(nice)
-        Command: \(command)
+        \(L.s("desc.pid")): \(id)
+        \(L.s("desc.name")): \(name)
+        \(L.s("desc.user")): \(user)
+        \(L.s("desc.cpu")): \(String(format: "%.1f%%", cpuUsage))
+        \(L.s("desc.resMem")): \(ProcessInfo.formatMemory(residentMemory))
+        \(L.s("desc.virMem")): \(ProcessInfo.formatMemory(virtualMemory))
+        \(L.s("desc.threads")): \(threadCount)
+        \(L.s("desc.prio")): \(priority)/\(nice)
+        \(L.s("desc.command")): \(command)
         """
     }
 }
@@ -70,4 +70,13 @@ enum ProcessFilter: String, CaseIterable, Identifiable {
     case all = "All"
     
     var id: String { rawValue }
+    
+    var localizedName: String {
+        switch self {
+        case .apps: return L.s("filter.apps")
+        case .my: return L.s("filter.my")
+        case .system: return L.s("filter.system")
+        case .all: return L.s("filter.all")
+        }
+    }
 }

@@ -1,5 +1,7 @@
 # Process Viewer
 
+[中文版](README_zh.md)
+
 A native macOS application for viewing and monitoring system processes with a hierarchical tree display.
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
@@ -17,11 +19,12 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 - **Hierarchical Process Tree**: View processes in a parent-child tree structure
 - **Flat View Mode**: Toggle between hierarchy and flat list view
+- **Multilingual Support**: English and Chinese with auto-detection and manual override
 - **Resizable Columns**: Drag column borders to adjust width
 - **Sortable Columns**: Click column headers to sort
 - **Process Filtering**: Filter by Apps / My Processes / System / All
 - **Search**: Real-time search by name, command, or PID
-- **Auto Refresh**: Automatic 3-second refresh with state preservation
+- **Auto Refresh**: Automatic 5-second refresh with state preservation
 - **App Icons**: Displays application icons for .app processes
 - **Adjustable Row Size**: Choose between Small, Medium, or Large row heights
 - **Expand/Collapse All**: Quick buttons to expand or collapse the entire tree

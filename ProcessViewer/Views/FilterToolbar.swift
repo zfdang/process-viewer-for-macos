@@ -18,13 +18,15 @@ struct FilterToolbar: View {
     let onExpandAll: () -> Void
     let onCollapseAll: () -> Void
     
+    @EnvironmentObject private var localization: L
+    
     var body: some View {
         ZStack {
             // Center: Search field (truly centered)
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                TextField("Search", text: $searchText)
+                TextField(L.s("search"), text: $searchText)
                     .textFieldStyle(.plain)
                     .frame(width: 150)
                 
@@ -44,15 +46,16 @@ struct FilterToolbar: View {
             HStack(spacing: 12) {
                 // Left section: Filter picker and process count
                 HStack(spacing: 8) {
-                    Picker("Filter", selection: $selectedFilter) {
+                    Picker(L.s("filter"), selection: $selectedFilter) {
                         ForEach(ProcessFilter.allCases) { filter in
-                            Text(filter.rawValue).tag(filter)
+                            Text(filter.localizedName).tag(filter)
                         }
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 280)
+                    .id("filter-picker-\(localization.isChinese)")
                     
-                    Text("\(processCount) processes")
+                    Text("\(processCount) \(L.s("processes"))")
                         .foregroundColor(.secondary)
                         .font(.callout)
                 }
@@ -71,7 +74,7 @@ struct FilterToolbar: View {
                     .buttonStyle(.borderless)
                     .background(showHierarchy ? Color.accentColor.opacity(0.2) : Color.clear)
                     .cornerRadius(4)
-                    .help(showHierarchy ? "Switch to Flat View" : "Switch to Hierarchy View")
+                    .help(showHierarchy ? L.s("switchToFlat") : L.s("switchToHierarchy"))
                     
                     // Expand All button
                     Button(action: onExpandAll) {
@@ -83,7 +86,7 @@ struct FilterToolbar: View {
                     .buttonStyle(.borderless)
                     .disabled(!showHierarchy)
                     .opacity(showHierarchy ? 1.0 : 0.4)
-                    .help("Expand All")
+                    .help(L.s("expandAll"))
                     
                     // Collapse All button
                     Button(action: onCollapseAll) {
@@ -95,7 +98,7 @@ struct FilterToolbar: View {
                     .buttonStyle(.borderless)
                     .disabled(!showHierarchy)
                     .opacity(showHierarchy ? 1.0 : 0.4)
-                    .help("Collapse All")
+                    .help(L.s("collapseAll"))
                     
                     Divider()
                         .frame(height: 16)
@@ -107,7 +110,7 @@ struct FilterToolbar: View {
                     }
                     .buttonStyle(.borderless)
                     .keyboardShortcut("r", modifiers: .command)
-                    .help("Refresh (⌘R)")
+                    .help("\(L.s("refresh")) (⌘R)")
                     
                     Divider()
                         .frame(height: 16)
@@ -123,7 +126,7 @@ struct FilterToolbar: View {
                             .buttonStyle(.borderless)
                             .background(rowSize == size ? Color.accentColor.opacity(0.2) : Color.clear)
                             .cornerRadius(4)
-                            .help(size == .small ? "Small rows" : size == .medium ? "Medium rows" : "Large rows")
+                            .help(size == .small ? L.s("rowSmall") : size == .medium ? L.s("rowMedium") : L.s("rowLarge"))
                         }
                     }
                 }

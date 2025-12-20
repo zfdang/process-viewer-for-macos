@@ -10,6 +10,9 @@ enum ProcessUtils {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(process.formattedDescription(), forType: .string)
+        
+        // Post notification to show toast
+        NotificationCenter.default.post(name: .processCopied, object: nil)
     }
     
     /// Get app icon for a process if available

@@ -79,6 +79,25 @@ nav {
     color: white;
 }
 
+.lang-switch {
+    margin-left: 10px;
+}
+
+.lang-switch a {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white !important;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.lang-switch a:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
 /* Hero Section */
 .hero {
     padding: 80px 20px;

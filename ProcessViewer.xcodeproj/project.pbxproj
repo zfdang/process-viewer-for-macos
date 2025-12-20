@@ -15,6 +15,7 @@
 		008 /* ProcessUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108 /* ProcessUtils.swift */; };
 		009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109 /* Assets.xcassets */; };
 		010 /* ProcessOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111 /* ProcessOutlineView.swift */; };
+		694CA6612EF6AE2100F9B70F /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694CA6602EF6AE2100F9B70F /* Localization.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		109 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		110 /* ProcessViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ProcessViewer.entitlements; sourceTree = "<group>"; };
 		111 /* ProcessOutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessOutlineView.swift; sourceTree = "<group>"; };
+		694CA6602EF6AE2100F9B70F /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,6 +94,7 @@
 		305 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				694CA6602EF6AE2100F9B70F /* Localization.swift */,
 				108 /* ProcessUtils.swift */,
 			);
 			path = Utilities;
@@ -172,6 +175,7 @@
 				004 /* ProcessMonitor.swift in Sources */,
 				007 /* FilterToolbar.swift in Sources */,
 				008 /* ProcessUtils.swift in Sources */,
+				694CA6612EF6AE2100F9B70F /* Localization.swift in Sources */,
 				010 /* ProcessOutlineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

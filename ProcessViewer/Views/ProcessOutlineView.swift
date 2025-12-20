@@ -117,15 +117,15 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         // Create columns
         let columns: [(NSUserInterfaceItemIdentifier, String, CGFloat, CGFloat, CGFloat)] = [
-            (.pidColumn, "PID", 70, 50, 100),
-            (.nameColumn, "Name", 200, 100, 400),
-            (.cpuColumn, "CPU %", 70, 50, 100),
-            (.userColumn, "User", 90, 60, 150),
-            (.priorityColumn, "Pri/Nice", 70, 50, 100),
-            (.resMemColumn, "Res Mem", 100, 70, 150),
-            (.virMemColumn, "Vir Mem", 100, 70, 150),
-            (.threadsColumn, "Threads", 70, 50, 100),
-            (.commandColumn, "Command", 300, 150, 1000),
+            (.pidColumn, L.s("col.pid"), 70, 50, 100),
+            (.nameColumn, L.s("col.name"), 200, 100, 400),
+            (.cpuColumn, L.s("col.cpu"), 70, 50, 100),
+            (.userColumn, L.s("col.user"), 90, 60, 150),
+            (.priorityColumn, L.s("col.prio"), 70, 50, 100),
+            (.resMemColumn, L.s("col.resMem"), 100, 70, 150),
+            (.virMemColumn, L.s("col.virMem"), 100, 70, 150),
+            (.threadsColumn, L.s("col.threads"), 70, 50, 100),
+            (.commandColumn, L.s("col.command"), 300, 150, 1000),
         ]
         
         for (identifier, title, width, minWidth, maxWidth) in columns {
@@ -156,17 +156,17 @@ struct ProcessOutlineView: NSViewRepresentable {
         let menu = NSMenu()
         menu.delegate = context.coordinator
         
-        let copyItem = NSMenuItem(title: "Copy Process Info", action: #selector(Coordinator.copyProcessInfo(_:)), keyEquivalent: "c")
+        let copyItem = NSMenuItem(title: L.s("copyInfo"), action: #selector(Coordinator.copyProcessInfo(_:)), keyEquivalent: "c")
         copyItem.target = context.coordinator
         menu.addItem(copyItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let expandItem = NSMenuItem(title: "Expand All", action: #selector(Coordinator.expandAll(_:)), keyEquivalent: "")
+        let expandItem = NSMenuItem(title: L.s("expandChildren"), action: #selector(Coordinator.expandAll(_:)), keyEquivalent: "")
         expandItem.target = context.coordinator
         menu.addItem(expandItem)
         
-        let collapseItem = NSMenuItem(title: "Collapse All", action: #selector(Coordinator.collapseAll(_:)), keyEquivalent: "")
+        let collapseItem = NSMenuItem(title: L.s("collapseChildren"), action: #selector(Coordinator.collapseAll(_:)), keyEquivalent: "")
         collapseItem.target = context.coordinator
         menu.addItem(collapseItem)
         

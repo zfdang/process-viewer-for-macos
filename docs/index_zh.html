@@ -1,20 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Process Viewer - macOS Process Monitor</title>
-    <meta name="description"
-        content="A native macOS application for viewing and monitoring system processes with a hierarchical tree display.">
-    <meta name="keywords"
-        content="macOS, process viewer, process monitor, system monitor, activity monitor, Swift, open source">
+    <title>Process Viewer - macOS 进程监控工具</title>
+    <meta name="description" content="一款原生 macOS 应用，用于查看和监控系统进程，支持层级树状显示。">
+    <meta name="keywords" content="macOS, 进程查看器, 进程监控, 系统监控, 活动监视器, Swift, 开源">
     <meta name="author" content="zfdang">
 
     <!-- Open Graph -->
     <meta property="og:title" content="Process Viewer for macOS">
-    <meta property="og:description"
-        content="A native macOS application for viewing and monitoring system processes with a hierarchical tree display.">
+    <meta property="og:description" content="一款原生 macOS 应用，用于查看和监控系统进程，支持层级树状显示。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://proc.zfdang.com">
 
@@ -39,11 +36,11 @@
                 <span>Process Viewer</span>
             </a>
             <ul class="nav-links">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#screenshots">Screenshots</a></li>
-                <li><a href="#installation">Installation</a></li>
+                <li><a href="#features">功能</a></li>
+                <li><a href="#screenshots">截图</a></li>
+                <li><a href="#installation">安装</a></li>
                 <li><a href="https://github.com/zfdang/process-viewer-for-macos">GitHub</a></li>
-                <li class="lang-switch"><a href="index_zh.html">中文</a></li>
+                <li class="lang-switch"><a href="index.html">English</a></li>
             </ul>
         </nav>
     </header>
@@ -52,8 +49,7 @@
     <section class="hero">
         <div class="hero-content">
             <h1>Process Viewer</h1>
-            <p>A native macOS application for viewing and monitoring system processes with a hierarchical tree display.
-            </p>
+            <p>一款原生 macOS 应用，用于查看和监控系统进程，支持层级树状显示。</p>
 
             <div class="badges">
                 <img src="https://img.shields.io/badge/macOS-13.0+-blue" alt="macOS 13.0+">
@@ -69,14 +65,14 @@
                         <path d="M12 2L12 15M12 15L7 10M12 15L17 10M5 20H19" stroke="currentColor" stroke-width="2"
                             fill="none" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    Download Latest
+                    下载最新版
                 </a>
                 <a href="https://github.com/zfdang/process-viewer-for-macos" class="btn btn-secondary">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                     </svg>
-                    View on GitHub
+                    在 GitHub 查看
                 </a>
             </div>
         </div>
@@ -85,139 +81,138 @@
     <!-- Main Screenshot -->
     <section class="screenshot-section">
         <div class="screenshot-container">
-            <img src="interface.png" alt="Process Viewer Main Interface">
+            <img src="interface.png" alt="Process Viewer 主界面">
         </div>
     </section>
 
     <!-- Features Section -->
     <section id="features" class="features">
-        <h2 class="section-title">Features</h2>
+        <h2 class="section-title">功能特性</h2>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">🌳</div>
-                <h3>Hierarchical Process Tree</h3>
-                <p>View processes in a parent-child tree structure, making it easy to understand process relationships.
-                </p>
+                <h3>层级进程树</h3>
+                <p>以父子树状结构查看进程，轻松理解进程之间的关系。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">📋</div>
-                <h3>Flat View Mode</h3>
-                <p>Toggle between hierarchy and flat list view for different perspectives on your processes.</p>
+                <h3>平铺视图模式</h3>
+                <p>在层级视图和平铺列表之间切换，从不同角度查看进程。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🌐</div>
-                <h3>Multilingual Support</h3>
-                <p>English and Chinese interface with auto-detection and manual language switching.</p>
+                <h3>多语言支持</h3>
+                <p>支持中英文界面，自动检测系统语言，可手动切换。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔍</div>
-                <h3>Real-time Search</h3>
-                <p>Instantly search by process name, command, or PID with real-time filtering.</p>
+                <h3>实时搜索</h3>
+                <p>按进程名称、命令或 PID 即时搜索，实时过滤结果。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🎚️</div>
-                <h3>Adjustable Row Size</h3>
-                <p>Choose between Small, Medium, or Large row heights for comfortable viewing.</p>
+                <h3>可调整行高</h3>
+                <p>可选择小、中、大三种行高，舒适查看。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔄</div>
-                <h3>Auto Refresh</h3>
-                <p>Automatic 5-second refresh with smart state preservation for scroll, selection, and expansion.</p>
+                <h3>自动刷新</h3>
+                <p>每 5 秒自动刷新，智能保持滚动位置、选中状态和展开状态。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🎨</div>
-                <h3>App Icons</h3>
-                <p>Displays application icons for .app processes, making identification easier.</p>
+                <h3>应用图标</h3>
+                <p>显示 .app 进程的应用图标，便于识别。</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">📊</div>
-                <h3>Sortable Columns</h3>
-                <p>Click column headers to sort by PID, Name, CPU, Memory, and more.</p>
+                <h3>可排序列</h3>
+                <p>点击列标题按 PID、名称、CPU、内存等排序。</p>
             </div>
         </div>
     </section>
 
     <!-- Screenshots Gallery -->
     <section id="screenshots" class="gallery">
-        <h2 class="section-title">Screenshots</h2>
+        <h2 class="section-title">截图</h2>
         <div class="gallery-grid">
             <figure class="gallery-item">
-                <img src="interface-search.png" alt="Search Feature">
-                <figcaption>Search & Filter</figcaption>
+                <img src="interface-search.png" alt="搜索功能">
+                <figcaption>搜索和过滤</figcaption>
             </figure>
             <figure class="gallery-item small">
-                <img src="interface-about.png" alt="About Window">
-                <figcaption>About Window</figcaption>
+                <img src="interface-about.png" alt="关于窗口">
+                <figcaption>关于窗口</figcaption>
             </figure>
         </div>
     </section>
 
     <!-- Info Section -->
     <section class="info-section">
-        <h2 class="section-title">Process Information</h2>
+        <h2 class="section-title">进程信息</h2>
         <div class="info-grid">
             <div class="info-card">
-                <h3>📊 Displayed Columns</h3>
+                <h3>📊 显示列</h3>
                 <table>
                     <tr>
-                        <td>PID</td>
-                        <td>Process ID</td>
+                        <td>进程 ID</td>
+                        <td>进程标识符</td>
                     </tr>
                     <tr>
-                        <td>Name</td>
-                        <td>Process name with app icon</td>
+                        <td>名称</td>
+                        <td>进程名称及应用图标</td>
                     </tr>
                     <tr>
                         <td>CPU %</td>
-                        <td>CPU usage (color-coded)</td>
+                        <td>CPU 使用率（颜色标记）</td>
                     </tr>
                     <tr>
-                        <td>User</td>
-                        <td>Owner username</td>
+                        <td>用户</td>
+                        <td>所属用户名</td>
                     </tr>
                     <tr>
-                        <td>Pri/Nice</td>
-                        <td>Priority and nice value</td>
+                        <td>优先级</td>
+                        <td>优先级和 nice 值</td>
                     </tr>
                     <tr>
-                        <td>Res Mem</td>
-                        <td>Resident memory usage</td>
+                        <td>常驻内存</td>
+                        <td>常驻内存使用量</td>
                     </tr>
                     <tr>
-                        <td>Vir Mem</td>
-                        <td>Virtual memory usage</td>
+                        <td>虚拟内存</td>
+                        <td>虚拟内存使用量</td>
                     </tr>
                     <tr>
-                        <td>Threads</td>
-                        <td>Thread count</td>
+                        <td>线程</td>
+                        <td>线程数量</td>
                     </tr>
                     <tr>
-                        <td>Command</td>
-                        <td>Full executable path</td>
+                        <td>命令</td>
+                        <td>完整可执行文件路径</td>
                     </tr>
                 </table>
             </div>
             <div class="info-card">
-                <h3>⚙️ Requirements</h3>
+                <h3>⚙️ 系统要求</h3>
                 <table>
                     <tr>
                         <td>macOS</td>
-                        <td>13.0 or later</td>
+                        <td>13.0 或更高版本</td>
                     </tr>
                     <tr>
                         <td>Xcode</td>
-                        <td>15.0+ (for building)</td>
+                        <td>15.0+（用于构建）</td>
                     </tr>
                     <tr>
-                        <td>License</td>
+                        <td>许可证</td>
                         <td>MIT</td>
                     </tr>
                     <tr>
-                        <td>Language</td>
+                        <td>编程语言</td>
                         <td>Swift 5.0</td>
                     </tr>
                     <tr>
-                        <td>Framework</td>
+                        <td>框架</td>
                         <td>SwiftUI + AppKit</td>
                     </tr>
                 </table>
@@ -227,31 +222,29 @@
 
     <!-- Installation Section -->
     <section id="installation" class="installation">
-        <h2 class="section-title">Installation</h2>
+        <h2 class="section-title">安装</h2>
         <div class="install-content">
             <div class="install-steps">
                 <div class="install-step">
                     <div class="step-number">1</div>
                     <div class="step-content">
-                        <h4>Download</h4>
-                        <p>Go to the <a href="https://github.com/zfdang/process-viewer-for-macos/releases">Releases
-                                page</a> and download the latest DMG or ZIP file.</p>
+                        <h4>下载</h4>
+                        <p>前往 <a href="https://github.com/zfdang/process-viewer-for-macos/releases">Releases 页面</a>下载最新的
+                            DMG 或 ZIP 文件。</p>
                     </div>
                 </div>
                 <div class="install-step">
                     <div class="step-number">2</div>
                     <div class="step-content">
-                        <h4>Install</h4>
-                        <p>Open the DMG and drag "Process Viewer" to your Applications folder, or extract the ZIP file.
-                        </p>
+                        <h4>安装</h4>
+                        <p>打开 DMG 并将 "Process Viewer" 拖到应用程序文件夹，或解压 ZIP 文件。</p>
                     </div>
                 </div>
                 <div class="install-step">
                     <div class="step-number">3</div>
                     <div class="step-content">
-                        <h4>First Launch</h4>
-                        <p>Right-click the app and select "Open" (first time only, to bypass Gatekeeper since the app is
-                            not notarized).</p>
+                        <h4>首次启动</h4>
+                        <p>右键点击应用选择"打开"（仅首次需要，以绕过 Gatekeeper，因为应用未经公证）。</p>
                     </div>
                 </div>
             </div>
@@ -262,12 +255,12 @@
     <footer>
         <div class="footer-links">
             <a href="https://github.com/zfdang/process-viewer-for-macos">GitHub</a>
-            <a href="https://github.com/zfdang/process-viewer-for-macos/releases">Releases</a>
-            <a href="https://github.com/zfdang/process-viewer-for-macos/issues">Report Issue</a>
-            <a href="https://github.com/zfdang">Author</a>
+            <a href="https://github.com/zfdang/process-viewer-for-macos/releases">下载</a>
+            <a href="https://github.com/zfdang/process-viewer-for-macos/issues">问题反馈</a>
+            <a href="https://github.com/zfdang">作者</a>
         </div>
         <p class="copyright">
-            © 2024 Process Viewer. Open source under MIT License.
+            © 2024 Process Viewer. 基于 MIT 许可证开源。
         </p>
     </footer>
 </body>

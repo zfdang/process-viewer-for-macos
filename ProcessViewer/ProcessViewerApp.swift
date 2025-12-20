@@ -3,10 +3,12 @@ import SwiftUI
 @main
 struct ProcessViewerApp: App {
     @Environment(\.openWindow) private var openWindow
+    @StateObject private var localization = L.shared
     
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(localization)
         }
         .defaultSize(width: 1200, height: 700)
         .windowStyle(.automatic)
@@ -15,6 +17,18 @@ struct ProcessViewerApp: App {
             CommandGroup(replacing: .appInfo) {
                 Button("About Process Viewer") {
                     openWindow(id: "about")
+                }
+            }
+            
+            // Language menu
+            CommandGroup(after: .toolbar) {
+                Menu(L.s("language")) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Button(lang.displayName) {
+                            localization.preference = lang
+                        }
+                        .disabled(localization.preference == lang)
+                    }
                 }
             }
         }
@@ -40,16 +54,16 @@ struct AboutView: View {
                 .resizable()
                 .frame(width: 80, height: 80)
             
-            // App name and version
+            // App name and version (name stays English per user request)
             Text("Process Viewer")
                 .font(.title.bold())
             
-            Text("Version 1.0.0")
+            Text("\(L.s("about.version")) 1.0.0")
                 .font(.callout)
                 .foregroundColor(.secondary)
             
             // Description
-            Text("A macOS process monitor with hierarchical tree view.")
+            Text(L.s("about.description"))
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
@@ -62,14 +76,14 @@ struct AboutView: View {
             // Author info
             VStack(spacing: 6) {
                 HStack {
-                    Text("Author:")
+                    Text("\(L.s("about.author")):")
                         .fontWeight(.medium)
                     Text("zfdang")
                 }
                 .font(.callout)
                 
                 HStack {
-                    Text("License:")
+                    Text("\(L.s("about.license")):")
                         .fontWeight(.medium)
                     Text("MIT")
                 }
@@ -82,14 +96,14 @@ struct AboutView: View {
             
             // Buttons
             HStack(spacing: 16) {
-                Button("Visit Website") {
+                Button(L.s("about.visitWebsite")) {
                     if let url = URL(string: "https://proc.zfdang.com") {
                         NSWorkspace.shared.open(url)
                     }
                 }
                 .buttonStyle(.bordered)
                 
-                Button("Close") {
+                Button(L.s("about.close")) {
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
