@@ -5,6 +5,9 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
+# Xcode user-specific files
+xcuserdata/
+
 # Swift Package Manager
 .build/
 Packages/
