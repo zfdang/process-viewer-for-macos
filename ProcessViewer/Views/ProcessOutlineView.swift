@@ -75,13 +75,13 @@ struct ProcessOutlineView: NSViewRepresentable {
     var rowSize: RowSize = .medium
     var showHierarchy: Bool = true
     
-    /// Signature to detect when process list actually changes (optimized)
+    /// Signature to detect when process list actually changes
     private var processSignature: String {
-        // Use count + first/last PID as a quick signature
+        // Use count + hash of all top-level PIDs for accurate change detection
         let count = processes.count
-        let firstPID = processes.first?.id ?? 0
-        let lastPID = processes.last?.id ?? 0
-        return "\(count)-\(firstPID)-\(lastPID)"
+        // Sum of PIDs provides a simple but effective hash
+        let pidSum = processes.reduce(0) { $0 + Int($1.id) }
+        return "\(count)-\(pidSum)"
     }
     
     /// Get row height based on size setting

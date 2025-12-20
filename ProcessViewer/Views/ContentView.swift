@@ -69,7 +69,7 @@ struct ContentView: View {
                     rowSize: rowSize,
                     showHierarchy: showHierarchy
                 )
-                .id("\(selectedFilter.rawValue)-\(rowSize.rawValue)-\(showHierarchy)")
+                .id("\(selectedFilter.rawValue)-\(searchText)-\(rowSize.rawValue)-\(showHierarchy)")
             }
             
             // Status bar
