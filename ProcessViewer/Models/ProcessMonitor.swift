@@ -4,14 +4,35 @@ import Darwin
 // Constants not available in Swift's Darwin module
 private let PROC_PIDPATHINFO_MAXSIZE: Int32 = 4096
 
+// MARK: - CPU Sample Data
+
+/// Structure to hold CPU sampling data for calculating usage percentage
+struct CPUSample {
+    let totalCPUTime: UInt64  // pti_total_user + pti_total_system (Mach absolute time)
+    let timestamp: UInt64     // Mach absolute time
+}
+
 // MARK: - Process Fetching (nonisolated)
 
 /// Helper enum with static methods for fetching processes (not MainActor isolated)
 enum ProcessFetcher {
     
-    /// Fetch all processes using sysctl
-    static func fetchAllProcesses() -> [ProcessInfo] {
+    /// Get the number of CPU cores
+    static var cpuCoreCount: Int = {
+        var count: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        sysctlbyname("hw.logicalcpu", &count, &size, nil, 0)
+        return Int(max(count, 1))
+    }()
+    
+    /// Fetch all processes using sysctl with CPU usage calculation
+    static func fetchAllProcesses(previousSamples: [pid_t: CPUSample]) -> (processes: [ProcessInfo], samples: [pid_t: CPUSample]) {
         var result: [ProcessInfo] = []
+        var newSamples: [pid_t: CPUSample] = [:]
+        
+        // Use mach_absolute_time for consistent timing with pti_total_user/system
+        let currentTime = mach_absolute_time()
+        let cpuCores = Double(cpuCoreCount)
         
         // Get process list using sysctl
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
@@ -19,7 +40,7 @@ enum ProcessFetcher {
         
         // First call to get buffer size
         guard sysctl(&mib, UInt32(mib.count), nil, &size, nil, 0) == 0 else {
-            return result
+            return (result, newSamples)
         }
         
         // Allocate buffer
@@ -28,7 +49,7 @@ enum ProcessFetcher {
         
         // Second call to get actual data
         guard sysctl(&mib, UInt32(mib.count), &procList, &size, nil, 0) == 0 else {
-            return result
+            return (result, newSamples)
         }
         
         let actualCount = size / MemoryLayout<kinfo_proc>.stride
@@ -77,9 +98,28 @@ enum ProcessFetcher {
             var threadCount: Int32 = 0
             
             if ret == taskInfoSize {
-                // CPU usage calculation (simplified - shows instantaneous usage)
-                let totalTime = Double(taskInfo.pti_total_user + taskInfo.pti_total_system)
-                cpuUsage = totalTime / 1_000_000_000.0 // Nanoseconds to seconds
+                // pti_total_user and pti_total_system - total CPU time used
+                let totalCPUTime = taskInfo.pti_total_user + taskInfo.pti_total_system
+                
+                // Store current sample for next calculation
+                newSamples[pid] = CPUSample(totalCPUTime: totalCPUTime, timestamp: currentTime)
+                
+                // Calculate CPU usage percentage if we have previous sample
+                if let prevSample = previousSamples[pid] {
+                    // Make sure CPU time increased (protect against PID reuse)
+                    if totalCPUTime >= prevSample.totalCPUTime && currentTime > prevSample.timestamp {
+                        let cpuTimeDelta = totalCPUTime - prevSample.totalCPUTime
+                        let realTimeDelta = currentTime - prevSample.timestamp
+                        
+                        // CPU% = (CPU time delta / real time delta) * 100
+                        // Both are in the same unit (Mach absolute time), so ratio is correct
+                        cpuUsage = (Double(cpuTimeDelta) / Double(realTimeDelta)) * 100.0
+                        
+                        // Clamp to reasonable range (0 to cores * 100)
+                        cpuUsage = max(0, min(cpuUsage, cpuCores * 100.0))
+                    }
+                }
+                // If no previous sample, cpuUsage remains 0 (first measurement)
                 
                 residentMemory = taskInfo.pti_resident_size
                 virtualMemory = taskInfo.pti_virtual_size
@@ -104,7 +144,7 @@ enum ProcessFetcher {
             result.append(processInfo)
         }
         
-        return result.sorted { $0.id < $1.id }
+        return (result.sorted { $0.id < $1.id }, newSamples)
     }
     
     /// Build parent-child hierarchy from flat process list
@@ -205,6 +245,9 @@ class ProcessMonitor: ObservableObject {
     private let currentUID: uid_t
     private let currentUser: String
     
+    /// Store previous CPU samples for calculating usage percentage
+    private var cpuSamples: [pid_t: CPUSample] = [:]
+    
     init() {
         // Get current UID and username (these are safe to call)
         currentUID = getuid()
@@ -247,10 +290,16 @@ class ProcessMonitor: ObservableObject {
     func refresh() async {
         isLoading = true
         
+        // Capture current samples for background task
+        let previousSamples = self.cpuSamples
+        
         // Fetch processes in background using nonisolated ProcessFetcher
-        let fetchedProcesses = await Task.detached(priority: .userInitiated) {
-            return ProcessFetcher.fetchAllProcesses()
+        let (fetchedProcesses, newSamples) = await Task.detached(priority: .userInitiated) {
+            return ProcessFetcher.fetchAllProcesses(previousSamples: previousSamples)
         }.value
+        
+        // Update samples for next refresh
+        self.cpuSamples = newSamples
         
         // Build hierarchy (can be done on main thread as it's just data manipulation)
         let hierarchy = ProcessFetcher.buildHierarchy(from: fetchedProcesses)

@@ -75,9 +75,13 @@ struct ProcessOutlineView: NSViewRepresentable {
     var rowSize: RowSize = .medium
     var showHierarchy: Bool = true
     
-    /// Signature to detect when process list actually changes
+    /// Signature to detect when process list actually changes (optimized)
     private var processSignature: String {
-        processes.map { String($0.id) }.joined(separator: ",")
+        // Use count + first/last PID as a quick signature
+        let count = processes.count
+        let firstPID = processes.first?.id ?? 0
+        let lastPID = processes.last?.id ?? 0
+        return "\(count)-\(firstPID)-\(lastPID)"
     }
     
     /// Get row height based on size setting
@@ -250,6 +254,10 @@ struct ProcessOutlineView: NSViewRepresentable {
         // Track process list signature to detect filter changes
         var lastProcessSignature: String = ""
         
+        // Cache for app icons to avoid repeated disk access
+        private var iconCache: [String: NSImage] = [:]
+        private let defaultIcon: NSImage = NSWorkspace.shared.icon(forFile: "/usr/bin/env")
+        
         init(_ parent: ProcessOutlineView) {
             self.parent = parent
             self.rootNodes = parent.processes.map { ProcessNode(process: $0) }
@@ -393,14 +401,9 @@ struct ProcessOutlineView: NSViewRepresentable {
                 textField.stringValue = process.name
                 textField.alignment = .left
                 textField.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
-                // Set app icon
+                // Set app icon (cached)
                 if let imageView = cellView.imageView {
-                    if let icon = getAppIcon(for: process) {
-                        imageView.image = icon
-                    } else {
-                        // Generic executable icon
-                        imageView.image = NSWorkspace.shared.icon(forFile: "/usr/bin/env")
-                    }
+                    imageView.image = getAppIcon(for: process)
                 }
             case .cpuColumn:
                 textField.stringValue = String(format: "%.1f", process.cpuUsage)
@@ -549,18 +552,26 @@ struct ProcessOutlineView: NSViewRepresentable {
             return cellView
         }
         
-        /// Get app icon for a process
-        private func getAppIcon(for process: ProcessInfo) -> NSImage? {
+        /// Get app icon for a process (with caching)
+        private func getAppIcon(for process: ProcessInfo) -> NSImage {
             let path = process.command
+            
+            // Check cache first
+            if let cachedIcon = iconCache[path] {
+                return cachedIcon
+            }
+            
+            var icon: NSImage = defaultIcon
             
             // Try to find .app bundle
             if let range = path.range(of: ".app") {
                 let appPath = String(path[..<range.upperBound])
-                return NSWorkspace.shared.icon(forFile: appPath)
+                icon = NSWorkspace.shared.icon(forFile: appPath)
             }
             
-            // For non-app executables, return generic icon
-            return nil
+            // Cache and return
+            iconCache[path] = icon
+            return icon
         }
         
         private func cpuColor(_ usage: Double) -> NSColor {

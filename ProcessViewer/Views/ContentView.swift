@@ -69,7 +69,7 @@ struct ContentView: View {
                     rowSize: rowSize,
                     showHierarchy: showHierarchy
                 )
-                .id("\(selectedFilter.rawValue)-\(searchText)-\(rowSize.rawValue)-\(showHierarchy)")
+                .id("\(selectedFilter.rawValue)-\(rowSize.rawValue)-\(showHierarchy)")
             }
             
             // Status bar
@@ -98,7 +98,7 @@ struct ContentView: View {
         .frame(minWidth: 1000, minHeight: 600)
         .onAppear {
             // Start auto-refresh
-            monitor.startAutoRefresh(interval: 3.0)
+            monitor.startAutoRefresh(interval: 5.0)
         }
         .onDisappear {
             // Stop auto-refresh to prevent crash on exit
