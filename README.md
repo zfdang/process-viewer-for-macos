@@ -41,7 +41,7 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ProcessViewer.git
+   git clone https://github.com/zfdang/process-viewer-for-macos.git
    ```
 
 2. Open in Xcode:
