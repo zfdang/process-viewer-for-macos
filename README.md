@@ -84,6 +84,35 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 This app requires **disabled App Sandbox** to read all system process information. Without this, it would only see a limited subset of processes.
 
+## Gatekeeper Notice
+
+This project is **free and open-source software** and is not enrolled in the Apple Developer Program ($99/year). As a result, macOS will display a warning: **"Cannot verify that this app is free from malware"** or **"The developer cannot be verified"**.
+
+This is a standard macOS security mechanism (Gatekeeper) and does **not** indicate any risk with the software.
+
+### How to Open the App
+
+**Method 1: Right-click to Open (Recommended)**
+1. Right-click (or Control-click) on the app
+2. Select "Open" from the context menu
+3. Click "Open" in the dialog that appears
+4. This only needs to be done once
+
+**Method 2: System Settings**
+1. Try to open the app normally (it will be blocked)
+2. Go to **System Settings** → **Privacy & Security**
+3. Scroll down to find the blocked app message
+4. Click "Open Anyway"
+
+**Method 3: Terminal Command**
+If the above methods don't work, you can remove the quarantine attribute using Terminal:
+```bash
+xattr -rd com.apple.quarantine /Applications/Process\ Viewer.app
+```
+
+> [!NOTE]
+> You can verify this app's source code on [GitHub](https://github.com/zfdang/process-viewer-for-macos). The releases are built automatically via GitHub Actions from the source code in this repository.
+
 ## Tech Stack
 
 - **SwiftUI**: Application structure and toolbar
