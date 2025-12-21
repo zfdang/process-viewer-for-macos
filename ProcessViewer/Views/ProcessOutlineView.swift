@@ -160,6 +160,10 @@ struct ProcessOutlineView: NSViewRepresentable {
         copyItem.target = context.coordinator
         menu.addItem(copyItem)
         
+        let searchItem = NSMenuItem(title: L.s("searchOnline"), action: #selector(Coordinator.searchOnline(_:)), keyEquivalent: "")
+        searchItem.target = context.coordinator
+        menu.addItem(searchItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         let expandItem = NSMenuItem(title: L.s("expandChildren"), action: #selector(Coordinator.expandAll(_:)), keyEquivalent: "")
@@ -600,6 +604,19 @@ struct ProcessOutlineView: NSViewRepresentable {
             guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
             
             ProcessUtils.copyToClipboard(node.process)
+        }
+        
+        @objc func searchOnline(_ sender: Any?) {
+            guard let outlineView = outlineView else { return }
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
+            
+            let processName = node.process.name
+            let query = "macos process \(processName)"
+            if let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: "https://www.bing.com/search?q=\(encoded)") {
+                NSWorkspace.shared.open(url)
+            }
         }
         
         @objc func expandAll(_ sender: Any?) {

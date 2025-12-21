@@ -90,6 +90,7 @@ class L: ObservableObject {
         "collapse": ("Collapse", "折叠"),
         "expandChildren": ("Expand All Children", "展开所有子项"),
         "collapseChildren": ("Collapse All Children", "折叠所有子项"),
+        "searchOnline": ("Search Online", "在线查询"),
         
         // Copy description labels
         "desc.pid": ("PID", "进程 ID"),
