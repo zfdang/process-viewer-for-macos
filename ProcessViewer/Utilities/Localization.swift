@@ -85,12 +85,14 @@ class L: ObservableObject {
         
         // Menu
         "language": ("Language", "语言"),
-        "copyInfo": ("Copy Process Info", "复制进程信息"),
+        "copyName": ("Copy Process Name", "复制进程名称"),
+        "copyCommand": ("Copy Process Command", "复制进程命令"),
+        "copyAllInfo": ("Copy All Information", "复制所有信息"),
+        "searchOnline": ("Search Online", "在线查询"),
         "expand": ("Expand", "展开"),
         "collapse": ("Collapse", "折叠"),
         "expandChildren": ("Expand All Children", "展开所有子项"),
         "collapseChildren": ("Collapse All Children", "折叠所有子项"),
-        "searchOnline": ("Search Online", "在线查询"),
         
         // Copy description labels
         "desc.pid": ("PID", "进程 ID"),

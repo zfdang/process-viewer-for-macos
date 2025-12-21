@@ -156,11 +156,19 @@ struct ProcessOutlineView: NSViewRepresentable {
         let menu = NSMenu()
         menu.delegate = context.coordinator
         
-        let copyItem = NSMenuItem(title: L.s("copyInfo"), action: #selector(Coordinator.copyProcessInfo(_:)), keyEquivalent: "c")
-        copyItem.target = context.coordinator
-        menu.addItem(copyItem)
+        let copyNameItem = NSMenuItem(title: L.s("copyName"), action: #selector(Coordinator.copyProcessName(_:)), keyEquivalent: "1")
+        copyNameItem.target = context.coordinator
+        menu.addItem(copyNameItem)
         
-        let searchItem = NSMenuItem(title: L.s("searchOnline"), action: #selector(Coordinator.searchOnline(_:)), keyEquivalent: "")
+        let copyCommandItem = NSMenuItem(title: L.s("copyCommand"), action: #selector(Coordinator.copyProcessCommand(_:)), keyEquivalent: "2")
+        copyCommandItem.target = context.coordinator
+        menu.addItem(copyCommandItem)
+        
+        let copyAllItem = NSMenuItem(title: L.s("copyAllInfo"), action: #selector(Coordinator.copyAllInfo(_:)), keyEquivalent: "3")
+        copyAllItem.target = context.coordinator
+        menu.addItem(copyAllItem)
+        
+        let searchItem = NSMenuItem(title: L.s("searchOnline"), action: #selector(Coordinator.searchOnline(_:)), keyEquivalent: "4")
         searchItem.target = context.coordinator
         menu.addItem(searchItem)
         
@@ -598,7 +606,29 @@ struct ProcessOutlineView: NSViewRepresentable {
             }
         }
         
-        @objc func copyProcessInfo(_ sender: Any?) {
+        @objc func copyProcessName(_ sender: Any?) {
+            guard let outlineView = outlineView else { return }
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
+            
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(node.process.name, forType: .string)
+            NotificationCenter.default.post(name: .processCopied, object: nil)
+        }
+        
+        @objc func copyProcessCommand(_ sender: Any?) {
+            guard let outlineView = outlineView else { return }
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
+            
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(node.process.command, forType: .string)
+            NotificationCenter.default.post(name: .processCopied, object: nil)
+        }
+        
+        @objc func copyAllInfo(_ sender: Any?) {
             guard let outlineView = outlineView else { return }
             let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
             guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
