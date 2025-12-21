@@ -58,7 +58,7 @@ struct AboutView: View {
             Text("Process Viewer")
                 .font(.title.bold())
             
-            Text("\(L.s("about.version")) 1.0.0")
+            Text("\(L.s("about.version")) 1.0 - \(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0")")
                 .font(.callout)
                 .foregroundColor(.secondary)
             
