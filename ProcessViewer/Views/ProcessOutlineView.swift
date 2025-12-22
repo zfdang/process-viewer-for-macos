@@ -226,8 +226,9 @@ struct ProcessOutlineView: NSViewRepresentable {
             context.coordinator.applySortDescriptor(sortDescriptor)
         }
         
-        // Reload data
+        // Reload data and force redisplay to update CPU/memory values
         outlineView.reloadData()
+        outlineView.needsDisplay = true
         
         if isFilterChange {
             // Filter/search changed - expand first level, reset to top
@@ -475,7 +476,10 @@ struct ProcessOutlineView: NSViewRepresentable {
             let selectedPID = getSelectedPID()
             
             sortNodes(&rootNodes, by: sortDescriptor)
+            
+            // Force reload and redisplay
             outlineView.reloadData()
+            outlineView.needsDisplay = true
             
             // Restore state after sorting
             restoreExpandedState(expandedPIDs)
