@@ -71,16 +71,8 @@ struct ProcessOutlineView: NSViewRepresentable {
     @Binding var selectedProcess: ProcessInfo?
     var outlineViewRef: OutlineViewReference
     var rowSize: RowSize = .medium
-    var showHierarchy: Bool = true
-    
-    /// Signature to detect when process list actually changes
-    private var processSignature: String {
-        // Use count + hash of all top-level PIDs for accurate change detection
-        let count = processes.count
-        // Sum of PIDs provides a simple but effective hash
-        let pidSum = processes.reduce(0) { $0 + Int($1.id) }
-        return "\(count)-\(pidSum)"
-    }
+    @Binding var showHierarchy: Bool
+    var refreshTrigger: Int = 0  // Changes to this value will trigger updateNSView
     
     /// Get row height based on size setting
     private var rowHeight: CGFloat {
@@ -135,7 +127,13 @@ struct ProcessOutlineView: NSViewRepresentable {
             column.minWidth = minWidth
             column.maxWidth = maxWidth
             column.isEditable = false
-            column.sortDescriptorPrototype = NSSortDescriptor(key: identifier.rawValue, ascending: true)
+            
+            // Numeric columns (CPU, Memory, Priority, Threads) default to descending (show highest first)
+            let defaultDescending: Set<NSUserInterfaceItemIdentifier> = [
+                .cpuColumn, .resMemColumn, .virMemColumn, .priorityColumn, .threadsColumn
+            ]
+            let ascending = !defaultDescending.contains(identifier)
+            column.sortDescriptorPrototype = NSSortDescriptor(key: identifier.rawValue, ascending: ascending)
             
             // Name column is the outline column (shows disclosure triangles)
             if identifier == .nameColumn {
@@ -200,22 +198,15 @@ struct ProcessOutlineView: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let outlineView = nsView.documentView as? NSOutlineView else { return }
         
-        // Check if process list actually changed (filter/search change)
-        let currentSignature = processSignature
-        let isFilterChange = context.coordinator.lastProcessSignature != currentSignature
-        context.coordinator.lastProcessSignature = currentSignature
+        // Save current state before updating
+        let scrollPosition = nsView.contentView.bounds.origin
+        let expandedPIDs = context.coordinator.getExpandedPIDs()
+        let selectedPID = context.coordinator.getSelectedPID()
+        let isFirstLoad = !context.coordinator.hasInitialized
         
-        // Only preserve state on auto-refresh (same data), not on filter/search change
-        var expandedPIDs: Set<pid_t> = []
-        var selectedPID: pid_t? = nil
-        var scrollPosition: CGPoint = .zero
-        
-        if !isFilterChange {
-            // Save state for auto-refresh
-            scrollPosition = nsView.contentView.bounds.origin
-            expandedPIDs = context.coordinator.getExpandedPIDs()
-            selectedPID = context.coordinator.getSelectedPID()
-        }
+        // Detect switching from flat to hierarchy view
+        let switchedToHierarchy = showHierarchy && !context.coordinator.lastShowHierarchy
+        context.coordinator.lastShowHierarchy = showHierarchy
         
         // Update data
         context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
@@ -226,23 +217,24 @@ struct ProcessOutlineView: NSViewRepresentable {
             context.coordinator.applySortDescriptor(sortDescriptor)
         }
         
-        // Reload data and force redisplay to update CPU/memory values
+        // Reload data
         outlineView.reloadData()
-        outlineView.needsDisplay = true
         
-        if isFilterChange {
-            // Filter/search changed - expand first level, reset to top
+        if isFirstLoad {
+            // First load - expand all nodes
+            outlineView.expandItem(nil, expandChildren: true)
+            context.coordinator.hasInitialized = true
+        } else if switchedToHierarchy {
+            // Switched from flat to hierarchy - expand first level
             for node in context.coordinator.rootNodes {
                 outlineView.expandItem(node, expandChildren: false)
             }
         } else {
-            // Auto-refresh - restore previous state
+            // Subsequent updates - restore previous state
             context.coordinator.restoreExpandedState(expandedPIDs)
-            
             if let pid = selectedPID {
                 context.coordinator.restoreSelection(pid)
             }
-            
             nsView.contentView.scroll(to: scrollPosition)
             nsView.reflectScrolledClipView(nsView.contentView)
         }
@@ -258,12 +250,11 @@ struct ProcessOutlineView: NSViewRepresentable {
         var rootNodes: [ProcessNode] = []
         weak var outlineView: NSOutlineView?
         
-        // Track expanded state - initialized with first level expanded
-        private var expandedPIDs: Set<pid_t> = []
-        private var hasInitialized = false
+        // Track if view has been initialized (for first load expand all)
+        var hasInitialized = false
         
-        // Track process list signature to detect filter changes
-        var lastProcessSignature: String = ""
+        // Track last hierarchy state to detect flat->hierarchy switch
+        var lastShowHierarchy = true
         
         // Cache for app icons to avoid repeated disk access
         private var iconCache: [String: NSImage] = [:]
@@ -277,7 +268,7 @@ struct ProcessOutlineView: NSViewRepresentable {
         // MARK: - State Preservation
         
         func getExpandedPIDs() -> Set<pid_t> {
-            guard let outlineView = outlineView else { return expandedPIDs }
+            guard let outlineView = outlineView else { return [] }
             
             var pids = Set<pid_t>()
             collectExpandedPIDs(from: rootNodes, outlineView: outlineView, into: &pids)
@@ -295,19 +286,7 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         func restoreExpandedState(_ pids: Set<pid_t>) {
             guard let outlineView = outlineView else { return }
-            
-            if pids.isEmpty && !hasInitialized {
-                // First time - expand first level
-                for node in rootNodes {
-                    outlineView.expandItem(node, expandChildren: false)
-                }
-                hasInitialized = true
-            } else {
-                // Restore previous state
-                expandNodes(rootNodes, outlineView: outlineView, expandedPIDs: pids)
-            }
-            
-            expandedPIDs = pids
+            expandNodes(rootNodes, outlineView: outlineView, expandedPIDs: pids)
         }
         
         private func expandNodes(_ nodes: [ProcessNode], outlineView: NSOutlineView, expandedPIDs: Set<pid_t>) {
@@ -471,17 +450,26 @@ struct ProcessOutlineView: NSViewRepresentable {
         func outlineView(_ outlineView: NSOutlineView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
             guard let sortDescriptor = outlineView.sortDescriptors.first else { return }
             
-            // Save state before sorting
+            // Auto switch to flat view only when user manually changes to a different column
+            // Skip if oldDescriptors is empty (initial setup) or if same column (just toggling direction)
+            let oldKey = oldDescriptors.first?.key
+            let newKey = sortDescriptor.key
+            if oldKey != nil && oldKey != newKey {
+                // Switch to flat view - SwiftUI will trigger updateNSView with new data
+                DispatchQueue.main.async { [weak self] in
+                    self?.parent.showHierarchy = false
+                }
+            }
+            
+            // Sort current data immediately
             let expandedPIDs = getExpandedPIDs()
             let selectedPID = getSelectedPID()
             
             sortNodes(&rootNodes, by: sortDescriptor)
             
-            // Force reload and redisplay
             outlineView.reloadData()
             outlineView.needsDisplay = true
             
-            // Restore state after sorting
             restoreExpandedState(expandedPIDs)
             if let pid = selectedPID {
                 restoreSelection(pid)

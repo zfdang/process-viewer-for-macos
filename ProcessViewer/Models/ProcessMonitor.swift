@@ -229,6 +229,7 @@ class ProcessMonitor: ObservableObject {
     @Published var processes: [ProcessInfo] = []
     @Published var flatProcesses: [ProcessInfo] = []
     @Published var isLoading = false
+    @Published var refreshCount: Int = 0
     
     private var timer: Timer?
     private var refreshInterval: TimeInterval = 3.0
@@ -296,6 +297,7 @@ class ProcessMonitor: ObservableObject {
         
         self.flatProcesses = fetchedProcesses
         self.processes = hierarchy
+        self.refreshCount += 1
         self.isLoading = false
     }
     

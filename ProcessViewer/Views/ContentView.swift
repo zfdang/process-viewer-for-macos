@@ -71,7 +71,8 @@ struct ContentView: View {
                         selectedProcess: $selectedProcess,
                         outlineViewRef: outlineViewRef,
                         rowSize: rowSize,
-                        showHierarchy: showHierarchy
+                        showHierarchy: $showHierarchy,
+                        refreshTrigger: monitor.refreshCount
                     )
                     .id("\(selectedFilter.rawValue)-\(searchText)-\(rowSize.rawValue)-\(localization.isChinese)")
                 }
