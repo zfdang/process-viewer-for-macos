@@ -199,45 +199,35 @@ struct ProcessOutlineView: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let outlineView = nsView.documentView as? NSOutlineView else { return }
         
-        // Save current state before updating
-        let scrollPosition = nsView.contentView.bounds.origin
-        let expandedPIDs = context.coordinator.getExpandedPIDs()
-        let selectedPID = context.coordinator.getSelectedPID()
         let isFirstLoad = !context.coordinator.hasInitialized
         
         // Detect switching from flat to hierarchy view
         let switchedToHierarchy = showHierarchy && !context.coordinator.lastShowHierarchy
         context.coordinator.lastShowHierarchy = showHierarchy
         
-        // Update data
-        context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
-        context.coordinator.parent = self
-        
-        // Apply current sort descriptor to new data
-        if let sortDescriptor = outlineView.sortDescriptors.first {
-            context.coordinator.applySortDescriptor(sortDescriptor)
-        }
-        
-        // Reload data
-        outlineView.reloadData()
-        
-        if isFirstLoad {
-            // First load - expand all nodes
-            outlineView.expandItem(nil, expandChildren: true)
-            context.coordinator.hasInitialized = true
-        } else if switchedToHierarchy {
-            // Switched from flat to hierarchy - expand first level
-            for node in context.coordinator.rootNodes {
-                outlineView.expandItem(node, expandChildren: false)
+        context.coordinator.withStatePreservation {
+            // Update data
+            context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
+            context.coordinator.parent = self
+            
+            // Apply current sort descriptor to new data
+            if let sortDescriptor = outlineView.sortDescriptors.first {
+                context.coordinator.applySortDescriptor(sortDescriptor)
             }
-        } else {
-            // Subsequent updates - restore previous state
-            context.coordinator.restoreExpandedState(expandedPIDs)
-            if let pid = selectedPID {
-                context.coordinator.restoreSelection(pid)
+            
+            // Reload data
+            outlineView.reloadData()
+            
+            if isFirstLoad {
+                // First load - expand all nodes
+                outlineView.expandItem(nil, expandChildren: true)
+                context.coordinator.hasInitialized = true
+            } else if switchedToHierarchy {
+                // Switched from flat to hierarchy - expand first level
+                for node in context.coordinator.rootNodes {
+                    outlineView.expandItem(node, expandChildren: false)
+                }
             }
-            nsView.contentView.scroll(to: scrollPosition)
-            nsView.reflectScrolledClipView(nsView.contentView)
         }
         
         // Update reference
@@ -319,6 +309,30 @@ struct ProcessOutlineView: NSViewRepresentable {
                     break
                 }
             }
+        }
+        
+        /// Encapsulates saving and restoring outline view state (expanded nodes, selection, scroll position)
+        func withStatePreservation(_ block: () -> Void) {
+            guard let outlineView = outlineView,
+                  let scrollView = outlineView.enclosingScrollView else {
+                block()
+                return
+            }
+            
+            // Save state
+            let scrollPosition = scrollView.contentView.bounds.origin
+            let expandedPIDs = getExpandedPIDs()
+            let selectedPID = getSelectedPID()
+            
+            block()
+            
+            // Restore state
+            restoreExpandedState(expandedPIDs)
+            if let pid = selectedPID {
+                restoreSelection(pid)
+            }
+            scrollView.contentView.scroll(to: scrollPosition)
+            scrollView.reflectScrolledClipView(scrollView.contentView)
         }
         
         // MARK: - NSOutlineViewDataSource
@@ -462,18 +476,11 @@ struct ProcessOutlineView: NSViewRepresentable {
                 }
             }
             
-            // Sort current data immediately
-            let expandedPIDs = getExpandedPIDs()
-            let selectedPID = getSelectedPID()
-            
-            sortNodes(&rootNodes, by: sortDescriptor)
-            
-            outlineView.reloadData()
-            outlineView.needsDisplay = true
-            
-            restoreExpandedState(expandedPIDs)
-            if let pid = selectedPID {
-                restoreSelection(pid)
+            // Sort current data immediately with state preservation
+            withStatePreservation {
+                sortNodes(&rootNodes, by: sortDescriptor)
+                outlineView.reloadData()
+                outlineView.needsDisplay = true
             }
         }
         
