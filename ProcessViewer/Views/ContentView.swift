@@ -72,9 +72,10 @@ struct ContentView: View {
                         outlineViewRef: outlineViewRef,
                         rowSize: rowSize,
                         showHierarchy: $showHierarchy,
-                        refreshTrigger: monitor.refreshCount
+                        refreshTrigger: monitor.refreshCount,
+                        filterKey: "\(selectedFilter.rawValue)-\(searchText)"
                     )
-                    .id("\(selectedFilter.rawValue)-\(searchText)-\(rowSize.rawValue)-\(localization.isChinese)")
+                    .id("\(rowSize.rawValue)-\(localization.isChinese)")
                 }
                 
                 // Status bar

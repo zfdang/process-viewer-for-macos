@@ -73,6 +73,7 @@ struct ProcessOutlineView: NSViewRepresentable {
     var rowSize: RowSize = .medium
     @Binding var showHierarchy: Bool
     var refreshTrigger: Int = 0  // Changes to this value will trigger updateNSView
+    var filterKey: String = ""   // Changes when filter/search changes
     
     /// Get row height based on size setting
     private var rowHeight: CGFloat {
