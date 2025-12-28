@@ -15,6 +15,8 @@
 
 ![搜索功能](docs/interface-search-zh.png)
 
+![快捷菜单](docs/interface-menu-zh.png)
+
 ## 功能特性
 
 - **层级进程树**：以父子树状结构查看进程关系
