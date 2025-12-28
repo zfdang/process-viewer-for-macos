@@ -1,134 +1,134 @@
 # Process Viewer
 
-[中文版](README_zh.md)
+[English](README_eng.md)
 
-A native macOS application for viewing and monitoring system processes with a hierarchical tree display.
+一款原生 macOS 应用，用于查看和监控系统进程，支持层级树状显示。
 
 ![macOS](https://img.shields.io/badge/macOS-13.0+-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 [![Build and Release](https://github.com/zfdang/process-viewer-for-macos/actions/workflows/build-release.yml/badge.svg)](https://github.com/zfdang/process-viewer-for-macos/actions/workflows/build-release.yml)
 
-## Screenshots
+## 截图
 
-![Main Interface](docs/interface.png)
+![主界面](docs/interface-zh.png)
 
-![Search](docs/interface-search.png)
+![搜索功能](docs/interface-search-zh.png)
 
-## Features
+## 功能特性
 
-- **Hierarchical Process Tree**: View processes in a parent-child tree structure
-- **Flat View Mode**: Toggle between hierarchy and flat list view
-- **Multilingual Support**: English and Chinese with auto-detection and manual override
-- **Resizable Columns**: Drag column borders to adjust width
-- **Sortable Columns**: Click column headers to sort
-- **Process Filtering**: Filter by Apps / My Processes / System / All
-- **Search**: Real-time search by name, command, or PID
-- **Auto Refresh**: Automatic 5-second refresh with state preservation
-- **App Icons**: Displays application icons for .app processes
-- **Adjustable Row Size**: Choose between Small, Medium, or Large row heights
-- **Expand/Collapse All**: Quick buttons to expand or collapse the entire tree
-- **Copy Info**: Right-click to copy detailed process information
-- **State Preservation**: Maintains scroll position, selection, and expanded state across refreshes
+- **层级进程树**：以父子树状结构查看进程关系
+- **平铺视图模式**：在层级视图和平铺列表之间切换
+- **多语言支持**：支持中英文，自动检测系统语言，可手动切换
+- **可调整列宽**：拖动列边框调整宽度
+- **可排序列**：点击列标题进行排序
+- **进程过滤**：按应用 / 我的进程 / 系统进程 / 全部进行过滤
+- **搜索**：按名称、命令或 PID 实时搜索
+- **自动刷新**：每 5 秒自动刷新，保持状态
+- **应用图标**：显示 .app 进程的应用图标
+- **可调整行高**：可选择小、中、大三种行高
+- **全部展开/折叠**：快速展开或折叠整个树
+- **复制信息**：右键复制详细进程信息
+- **状态保持**：刷新时保持滚动位置、选中状态和展开状态
 
-## Process Information Displayed
+## 显示的进程信息
 
-| Column | Description |
-|--------|-------------|
-| PID | Process ID |
-| Name | Process name with app icon |
-| CPU % | CPU usage (color-coded) |
-| User | Owner username |
-| Pri/Nice | Priority and nice value |
-| Res Mem | Resident memory usage |
-| Vir Mem | Virtual memory usage |
-| Threads | Thread count |
-| Command | Full executable path |
+| 列名 | 描述 |
+|------|------|
+| 进程 ID | 进程标识符 |
+| 名称 | 进程名称及应用图标 |
+| CPU % | CPU 使用率（颜色标记） |
+| 用户 | 所属用户名 |
+| 优先级 | 优先级和 nice 值 |
+| 常驻内存 | 常驻内存使用量 |
+| 虚拟内存 | 虚拟内存使用量 |
+| 线程 | 线程数量 |
+| 命令 | 完整可执行文件路径 |
 
-## Requirements
+## 系统要求
 
-- macOS 13.0 or later
-- Xcode 15.0 or later (for building from source)
+- macOS 13.0 或更高版本
+- Xcode 15.0 或更高版本（从源码构建时需要）
 
-## Installation
+## 安装
 
-### Download Release
+### 下载发布版
 
-1. Go to [Releases](https://github.com/zfdang/process-viewer-for-macos/releases)
-2. Download the latest DMG or ZIP file
-3. Open the DMG and drag "Process Viewer" to Applications, or extract the ZIP
-4. Right-click the app and select "Open" (first time only, to bypass Gatekeeper)
+1. 前往 [Releases](https://github.com/zfdang/process-viewer-for-macos/releases) 页面
+2. 下载最新的 DMG 或 ZIP 文件
+3. 打开 DMG 并将 "Process Viewer" 拖到应用程序文件夹，或解压 ZIP 文件
+4. 首次运行时，右键点击应用选择"打开"（以绕过 Gatekeeper）
 
-### Build from Source
+### 从源码构建
 
-1. Clone the repository:
+1. 克隆仓库：
    ```bash
    git clone https://github.com/zfdang/process-viewer-for-macos.git
    ```
 
-2. Open in Xcode:
+2. 使用 Xcode 打开：
    ```bash
    cd process-viewer-for-macos
    open ProcessViewer.xcodeproj
    ```
 
-3. Build and run (⌘R)
+3. 构建并运行（⌘R）
 
-## Keyboard Shortcuts
+## 快捷键
 
-| Shortcut | Action |
-|----------|--------|
-| ⌘R | Refresh process list |
+| 快捷键 | 功能 |
+|--------|------|
+| ⌘R | 刷新进程列表 |
 
-## Note on Permissions
+## 权限说明
 
-This app requires **disabled App Sandbox** to read all system process information. Without this, it would only see a limited subset of processes.
+此应用需要**禁用 App Sandbox** 才能读取所有系统进程信息。否则只能看到有限的进程子集。
 
-## Gatekeeper Notice
+## macOS 安全提示
 
-This project is **free and open-source software** and is not enrolled in the Apple Developer Program ($99/year). As a result, macOS will display a warning: **"Cannot verify that this app is free from malware"** or **"The developer cannot be verified"**.
+本项目是**免费开源软件**，未加入 Apple Developer Program（99美元/年）。因此，macOS 会显示警告：**"无法验证开发者"** 或 **"无法确认此 App 不包含恶意软件"**。
 
-This is a standard macOS security mechanism (Gatekeeper) and does **not** indicate any risk with the software.
+这是 macOS 的标准安全机制（Gatekeeper），**不代表**软件存在任何风险。
 
-### How to Open the App
+### 如何打开应用
 
-**Method 1: Right-click to Open (Recommended)**
-1. Right-click (or Control-click) on the app
-2. Select "Open" from the context menu
-3. Click "Open" in the dialog that appears
-4. This only needs to be done once
+**方法一：右键打开（推荐）**
+1. 右键点击（或按住 Control 键点击）应用
+2. 从菜单中选择"打开"
+3. 在弹出的对话框中点击"打开"
+4. 此操作只需执行一次
 
-**Method 2: System Settings**
-1. Try to open the app normally (it will be blocked)
-2. Go to **System Settings** → **Privacy & Security**
-3. Scroll down to find the blocked app message
-4. Click "Open Anyway"
+**方法二：系统设置**
+1. 尝试正常打开应用（会被阻止）
+2. 前往 **系统设置** → **隐私与安全性**
+3. 向下滚动找到被阻止的应用提示
+4. 点击"仍要打开"
 
-**Method 3: Terminal Command**
-If the above methods don't work, you can remove the quarantine attribute using Terminal:
+**方法三：终端命令**
+如果上述方法无效，可以使用终端命令移除隔离属性：
 ```bash
 xattr -rd com.apple.quarantine /Applications/Process\ Viewer.app
 ```
 
 > [!NOTE]
-> You can verify this app's source code on [GitHub](https://github.com/zfdang/process-viewer-for-macos). The releases are built automatically via GitHub Actions from the source code in this repository.
+> 您可以在 [GitHub](https://github.com/zfdang/process-viewer-for-macos) 上查看本应用的完整源代码。所有发布版本均通过 GitHub Actions 从源代码自动构建。
 
-## Tech Stack
+## 技术栈
 
-- **SwiftUI**: Application structure and toolbar
-- **AppKit (NSOutlineView)**: Process tree with resizable/sortable columns
-- **sysctl / libproc**: System APIs for process information
+- **SwiftUI**：应用架构和工具栏
+- **AppKit (NSOutlineView)**：支持调整列宽和排序的进程树
+- **sysctl / libproc**：获取进程信息的系统 API
 
-## License
+## 许可证
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT 许可证 - 详见 [LICENSE](LICENSE)。
 
-## Author
+## 作者
 
 - **zfdang** - [GitHub](https://github.com/zfdang)
 
-## Links
+## 链接
 
-- [Website](https://proc.zfdang.com)
-- [GitHub Repository](https://github.com/zfdang/process-viewer-for-macos)
-- [Report Issues](https://github.com/zfdang/process-viewer-for-macos/issues)
+- [网站](https://proc.zfdang.com)
+- [GitHub 仓库](https://github.com/zfdang/process-viewer-for-macos)
+- [问题反馈](https://github.com/zfdang/process-viewer-for-macos/issues)
