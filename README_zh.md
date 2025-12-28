@@ -11,9 +11,9 @@
 
 ## 截图
 
-![主界面](docs/interface.png)
+![主界面](docs/interface-zh.png)
 
-![搜索功能](docs/interface-search.png)
+![搜索功能](docs/interface-search-zh.png)
 
 ## 功能特性
 
