@@ -61,6 +61,7 @@ extension NSUserInterfaceItemIdentifier {
     static let resMemColumn = NSUserInterfaceItemIdentifier("ResMemColumn")
     static let virMemColumn = NSUserInterfaceItemIdentifier("VirMemColumn")
     static let threadsColumn = NSUserInterfaceItemIdentifier("ThreadsColumn")
+    static let connectionsColumn = NSUserInterfaceItemIdentifier("ConnectionsColumn")
     static let commandColumn = NSUserInterfaceItemIdentifier("CommandColumn")
 }
 
@@ -110,15 +111,16 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         // Create columns
         let columns: [(NSUserInterfaceItemIdentifier, String, CGFloat, CGFloat, CGFloat)] = [
-            (.pidColumn, L.s("col.pid"), 70, 50, 100),
-            (.nameColumn, L.s("col.name"), 200, 100, 400),
-            (.cpuColumn, L.s("col.cpu"), 70, 50, 100),
-            (.userColumn, L.s("col.user"), 90, 60, 150),
-            (.priorityColumn, L.s("col.prio"), 70, 50, 100),
-            (.resMemColumn, L.s("col.resMem"), 100, 70, 150),
-            (.virMemColumn, L.s("col.virMem"), 100, 70, 150),
-            (.threadsColumn, L.s("col.threads"), 70, 50, 100),
-            (.commandColumn, L.s("col.command"), 300, 150, 1000),
+            (.pidColumn, L.s("col.pid"), 60, 50, 100),
+            (.nameColumn, L.s("col.name"), 180, 80, 500),
+            (.cpuColumn, L.s("col.cpu"), 60, 50, 100),
+            (.userColumn, L.s("col.user"), 80, 60, 150),
+            (.priorityColumn, L.s("col.prio"), 65, 50, 100),
+            (.resMemColumn, L.s("col.resMem"), 90, 70, 150),
+            (.virMemColumn, L.s("col.virMem"), 90, 70, 150),
+            (.threadsColumn, L.s("col.threads"), 50, 40, 100),
+            (.connectionsColumn, L.s("col.connections"), 50, 40, 80),
+            (.commandColumn, L.s("col.command"), 500, 200, 2000),
         ]
         
         for (identifier, title, width, minWidth, maxWidth) in columns {
@@ -129,9 +131,19 @@ struct ProcessOutlineView: NSViewRepresentable {
             column.maxWidth = maxWidth
             column.isEditable = false
             
+            // Set header alignment based on column type
+            switch identifier {
+            case .pidColumn, .resMemColumn, .virMemColumn:
+                column.headerCell.alignment = .right
+            case .cpuColumn, .priorityColumn, .threadsColumn, .connectionsColumn:
+                column.headerCell.alignment = .center
+            default:
+                column.headerCell.alignment = .left
+            }
+            
             // Numeric columns (CPU, Memory, Priority, Threads) default to descending (show highest first)
             let defaultDescending: Set<NSUserInterfaceItemIdentifier> = [
-                .cpuColumn, .resMemColumn, .virMemColumn, .priorityColumn, .threadsColumn
+                .cpuColumn, .resMemColumn, .virMemColumn, .priorityColumn, .threadsColumn, .connectionsColumn
             ]
             let ascending = !defaultDescending.contains(identifier)
             column.sortDescriptorPrototype = NSSortDescriptor(key: identifier.rawValue, ascending: ascending)
@@ -170,6 +182,10 @@ struct ProcessOutlineView: NSViewRepresentable {
         let searchItem = NSMenuItem(title: L.s("searchOnline"), action: #selector(Coordinator.searchOnline(_:)), keyEquivalent: "4")
         searchItem.target = context.coordinator
         menu.addItem(searchItem)
+        
+        let networkItem = NSMenuItem(title: L.s("viewNetworkConnections"), action: #selector(Coordinator.viewNetworkConnections(_:)), keyEquivalent: "5")
+        networkItem.target = context.coordinator
+        menu.addItem(networkItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -391,10 +407,23 @@ struct ProcessOutlineView: NSViewRepresentable {
             let process = node.process
             let identifier = column.identifier
             
-            let cellView = outlineView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView
+            let cellView = outlineView.makeView(withIdentifier: identifier, owner: self) 
                 ?? createCellView(identifier: identifier)
             
-            let textField = cellView.textField!
+            if identifier == .connectionsColumn {
+                if let button = cellView as? NSButton {
+                    let count = process.connectionCount
+                    button.title = "\(count)"
+                    button.tag = Int(process.id)
+                    button.contentTintColor = count > 0 ? .linkColor : .labelColor
+                }
+                return cellView
+            }
+
+            guard let tableCell = cellView as? NSTableCellView, let textField = tableCell.textField else {
+                return cellView
+            }
+            
             textField.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             textField.textColor = .labelColor
             
@@ -407,12 +436,12 @@ struct ProcessOutlineView: NSViewRepresentable {
                 textField.alignment = .left
                 textField.font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
                 // Set app icon (cached)
-                if let imageView = cellView.imageView {
+                if let imageView = tableCell.imageView {
                     imageView.image = getAppIcon(for: process)
                 }
             case .cpuColumn:
                 textField.stringValue = String(format: "%.1f", process.cpuUsage)
-                textField.alignment = .right
+                textField.alignment = .center
                 textField.textColor = cpuColor(process.cpuUsage)
             case .userColumn:
                 textField.stringValue = process.user
@@ -429,7 +458,9 @@ struct ProcessOutlineView: NSViewRepresentable {
                 textField.alignment = .right
             case .threadsColumn:
                 textField.stringValue = "\(process.threadCount)"
-                textField.alignment = .right
+                textField.alignment = .center
+            case .connectionsColumn:
+                break // Handled above
             case .commandColumn:
                 textField.stringValue = process.command
                 textField.alignment = .left
@@ -507,6 +538,8 @@ struct ProcessOutlineView: NSViewRepresentable {
                     result = a.process.virtualMemory < b.process.virtualMemory
                 case "ThreadsColumn":
                     result = a.process.threadCount < b.process.threadCount
+                case "ConnectionsColumn":
+                    result = a.process.connectionCount < b.process.connectionCount
                 case "CommandColumn":
                     result = a.process.command.localizedCaseInsensitiveCompare(b.process.command) == .orderedAscending
                 default:
@@ -523,7 +556,16 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         // MARK: - Helper Methods
         
-        private func createCellView(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
+        private func createCellView(identifier: NSUserInterfaceItemIdentifier) -> NSView {
+            if identifier == .connectionsColumn {
+                let button = NSButton(title: "", target: self, action: #selector(viewNetworkConnectionsFromButton(_:)))
+                button.isBordered = false
+                button.alignment = .center
+                button.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+                button.identifier = identifier
+                return button
+            }
+            
             let cellView = NSTableCellView()
             cellView.identifier = identifier
             
@@ -647,6 +689,28 @@ struct ProcessOutlineView: NSViewRepresentable {
                let url = URL(string: "https://www.bing.com/search?q=\(encoded)") {
                 NSWorkspace.shared.open(url)
             }
+        }
+        
+        @objc func viewNetworkConnections(_ sender: Any?) {
+            guard let outlineView = outlineView else { return }
+            let row = outlineView.clickedRow >= 0 ? outlineView.clickedRow : outlineView.selectedRow
+            guard row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode else { return }
+            
+            showNetworkDetails(for: node.process)
+        }
+        
+        @objc func viewNetworkConnectionsFromButton(_ sender: NSButton) {
+            let pid = pid_t(sender.tag)
+            // Find process info from rootNodes
+            if let node = findNode(withPID: pid, in: rootNodes) {
+                showNetworkDetails(for: node.process)
+            }
+        }
+        
+        private let networkWindowController = NetworkConnectionsWindowController()
+        
+        private func showNetworkDetails(for process: ProcessInfo) {
+            networkWindowController.show(for: process.name, pid: process.id)
         }
         
         @objc func expandAll(_ sender: Any?) {

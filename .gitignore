@@ -57,3 +57,4 @@ fastlane/test_output
 # Temporary files
 *.bak
 *.tmp
+*.o

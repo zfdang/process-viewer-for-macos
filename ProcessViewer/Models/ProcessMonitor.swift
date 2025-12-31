@@ -26,7 +26,7 @@ enum ProcessFetcher {
     }()
     
     /// Fetch all processes using sysctl with CPU usage calculation
-    static func fetchAllProcesses(previousSamples: [pid_t: CPUSample]) -> (processes: [ProcessInfo], samples: [pid_t: CPUSample]) {
+    static func fetchAllProcesses(previousSamples: [pid_t: CPUSample]) async -> (processes: [ProcessInfo], samples: [pid_t: CPUSample]) {
         var result: [ProcessInfo] = []
         var newSamples: [pid_t: CPUSample] = [:]
         
@@ -138,13 +138,34 @@ enum ProcessFetcher {
                 priority: Int32(proc.kp_proc.p_priority),
                 nice: Int32(proc.kp_proc.p_nice),
                 command: command,
+                connectionCount: 0, // Will be filled in parallel
                 children: []
             )
             
             result.append(processInfo)
         }
         
-        return (result.sorted { $0.id < $1.id }, newSamples)
+        // Fetch connection counts in parallel to reduce background task duration
+        let finalResult = await withTaskGroup(of: (pid_t, Int).self) { group -> [ProcessInfo] in
+            for proc in result {
+                group.addTask {
+                    return (proc.id, NetworkConnectionFetcher.connectionCount(for: proc.id))
+                }
+            }
+            
+            var counts: [pid_t: Int] = [:]
+            for await (pid, count) in group {
+                counts[pid] = count
+            }
+            
+            return result.map { proc in
+                var updated = proc
+                updated.connectionCount = counts[proc.id] ?? 0
+                return updated
+            }
+        }
+        
+        return (finalResult.sorted { $0.id < $1.id }, newSamples)
     }
     
     /// Build parent-child hierarchy from flat process list
@@ -286,7 +307,7 @@ class ProcessMonitor: ObservableObject {
         
         // Fetch processes in background using nonisolated ProcessFetcher
         let (fetchedProcesses, newSamples) = await Task.detached(priority: .userInitiated) {
-            return ProcessFetcher.fetchAllProcesses(previousSamples: previousSamples)
+            return await ProcessFetcher.fetchAllProcesses(previousSamples: previousSamples)
         }.value
         
         // Update samples for next refresh

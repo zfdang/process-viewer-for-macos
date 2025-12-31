@@ -112,6 +112,21 @@ class L: ObservableObject {
         "about.license": ("License", "许可证"),
         "about.visitWebsite": ("Visit Website", "访问网站"),
         "about.close": ("Close", "关闭"),
+        
+        // Network connections
+        "col.connections": ("Conns", "连接"),
+        "viewNetworkConnections": ("View Network Connections", "查看网络连接"),
+        "net.title": ("Network Connections", "网络连接"),
+        "net.connections": ("connections", "个连接"),
+        "net.col.proto": ("Proto", "协议"),
+        "net.col.family": ("Family", "类型"),
+        "net.col.localAddr": ("Local Addr", "本地地址"),
+        "net.col.localPort": ("L-Port", "本地端口"),
+        "net.col.remoteAddr": ("Remote Addr", "远程地址"),
+        "net.col.remotePort": ("R-Port", "远程端口"),
+        "net.col.state": ("State", "状态"),
+        "net.noConnections": ("No network connections", "无网络连接"),
+        "net.close": ("Close", "关闭"),
     ]
     
     /// Get localized string for key

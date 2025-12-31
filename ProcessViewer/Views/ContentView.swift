@@ -137,10 +137,6 @@ struct ContentView: View {
     }
 }
 
-extension Notification.Name {
-    static let processCopied = Notification.Name("processCopied")
-}
-
 #Preview {
     ContentView()
 }

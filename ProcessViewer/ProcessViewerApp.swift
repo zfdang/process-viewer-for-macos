@@ -10,7 +10,7 @@ struct ProcessViewerApp: App {
             ContentView()
                 .environmentObject(localization)
         }
-        .defaultSize(width: 1200, height: 700)
+        .defaultSize(width: 1300, height: 700)
         .windowStyle(.automatic)
         .commands {
             CommandGroup(replacing: .newItem) { }

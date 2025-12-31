@@ -16,6 +16,10 @@
 		009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 109 /* Assets.xcassets */; };
 		010 /* ProcessOutlineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111 /* ProcessOutlineView.swift */; };
 		694CA6612EF6AE2100F9B70F /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694CA6602EF6AE2100F9B70F /* Localization.swift */; };
+		69DED8272F054550009B82F4 /* NetworkConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DED8262F054550009B82F4 /* NetworkConnectionsView.swift */; };
+		69DED82A2F05455C009B82F4 /* NetworkConnectionFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DED8292F05455C009B82F4 /* NetworkConnectionFetcher.swift */; };
+		69DED82B2F05455C009B82F4 /* NetworkConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DED8282F05455C009B82F4 /* NetworkConnection.swift */; };
+		69DED82D2F054567009B82F4 /* SharedDefinitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DED82C2F054567009B82F4 /* SharedDefinitions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +34,10 @@
 		110 /* ProcessViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ProcessViewer.entitlements; sourceTree = "<group>"; };
 		111 /* ProcessOutlineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessOutlineView.swift; sourceTree = "<group>"; };
 		694CA6602EF6AE2100F9B70F /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		69DED8262F054550009B82F4 /* NetworkConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkConnectionsView.swift; sourceTree = "<group>"; };
+		69DED8282F05455C009B82F4 /* NetworkConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkConnection.swift; sourceTree = "<group>"; };
+		69DED8292F05455C009B82F4 /* NetworkConnectionFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkConnectionFetcher.swift; sourceTree = "<group>"; };
+		69DED82C2F054567009B82F4 /* SharedDefinitions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedDefinitions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +84,8 @@
 			isa = PBXGroup;
 			children = (
 				103 /* ProcessInfo.swift */,
+				69DED8282F05455C009B82F4 /* NetworkConnection.swift */,
+				69DED8292F05455C009B82F4 /* NetworkConnectionFetcher.swift */,
 				104 /* ProcessMonitor.swift */,
 			);
 			path = Models;
@@ -87,6 +97,7 @@
 				102 /* ContentView.swift */,
 				107 /* FilterToolbar.swift */,
 				111 /* ProcessOutlineView.swift */,
+				69DED8262F054550009B82F4 /* NetworkConnectionsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -94,6 +105,7 @@
 		305 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				69DED82C2F054567009B82F4 /* SharedDefinitions.swift */,
 				694CA6602EF6AE2100F9B70F /* Localization.swift */,
 				108 /* ProcessUtils.swift */,
 			);
@@ -170,12 +182,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				001 /* ProcessViewerApp.swift in Sources */,
+				69DED82D2F054567009B82F4 /* SharedDefinitions.swift in Sources */,
 				002 /* ContentView.swift in Sources */,
 				003 /* ProcessInfo.swift in Sources */,
 				004 /* ProcessMonitor.swift in Sources */,
+				69DED82A2F05455C009B82F4 /* NetworkConnectionFetcher.swift in Sources */,
+				69DED82B2F05455C009B82F4 /* NetworkConnection.swift in Sources */,
 				007 /* FilterToolbar.swift in Sources */,
 				008 /* ProcessUtils.swift in Sources */,
 				694CA6612EF6AE2100F9B70F /* Localization.swift in Sources */,
+				69DED8272F054550009B82F4 /* NetworkConnectionsView.swift in Sources */,
 				010 /* ProcessOutlineView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

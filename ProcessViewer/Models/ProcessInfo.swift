@@ -13,6 +13,7 @@ struct ProcessInfo: Identifiable, Hashable {
     let priority: Int32        // Process priority
     let nice: Int32            // Nice value
     let command: String        // Full command path
+    var connectionCount: Int   // Number of network connections
     var children: [ProcessInfo] // Child processes (for tree hierarchy)
     
     // Computed property to check if process has children

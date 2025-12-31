@@ -1,12 +1,5 @@
 import SwiftUI
 
-/// Row size for the outline view
-enum RowSize: String, CaseIterable {
-    case small = "S"
-    case medium = "M"
-    case large = "L"
-}
-
 /// Filter toolbar with filter buttons, search field, and action buttons
 struct FilterToolbar: View {
     @Binding var selectedFilter: ProcessFilter
