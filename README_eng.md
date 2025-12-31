@@ -15,7 +15,11 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 ![Search](docs/interface-search.png)
  
-![Network Connections](docs/interface-conns-zh.png)
+![Menu](docs/interface-menu.png)
+
+![Network Connections](docs/interface-conns.png)
+
+![About Window](docs/interface-about.png)
 
 ## Features
 

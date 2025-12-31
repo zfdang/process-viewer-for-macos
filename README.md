@@ -14,10 +14,12 @@
 ![主界面](docs/interface-zh.png)
 
 ![搜索功能](docs/interface-search-zh.png)
-
-![快捷菜单](docs/interface-menu-zh.png)
  
+![右键菜单](docs/interface-menu-zh.png)
+
 ![网络连接](docs/interface-conns-zh.png)
+
+![关于窗口](docs/interface-about.png)
 
 ## 功能特性
 
