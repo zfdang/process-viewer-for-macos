@@ -106,8 +106,8 @@
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🌐</div>
-                <h3>Multilingual Support</h3>
-                <p>English and Chinese interface with auto-detection and manual language switching.</p>
+                <h3>Network Connections</h3>
+                <p>View active network connections for any process, including local/remote addresses and ports.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔍</div>
@@ -146,6 +146,14 @@
                 <figcaption>Search & Filter</figcaption>
             </figure>
             <figure class="gallery-item small">
+                <img src="interface-menu.png" alt="Menu">
+                <figcaption>Menu</figcaption>
+            </figure>
+            <figure class="gallery-item small">
+                <img src="interface-conns-zh.png" alt="Network Connections">
+                <figcaption>Network Connections</figcaption>
+            </figure>
+            <figure class="gallery-item small">
                 <img src="interface-about.png" alt="About Window">
                 <figcaption>About Window</figcaption>
             </figure>
@@ -170,6 +178,10 @@
                     <tr>
                         <td>CPU %</td>
                         <td>CPU usage (color-coded)</td>
+                    </tr>
+                    <tr>
+                        <td>Connections</td>
+                        <td>Active network connection count</td>
                     </tr>
                     <tr>
                         <td>User</td>
@@ -270,6 +282,54 @@
             © 2024 Process Viewer. Open source under MIT License.
         </p>
     </footer>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="close-modal">&times;</span>
+        <img class="modal-content" id="img01">
+    </div>
+
+    <!-- JavaScript for Image Zoom -->
+    <script>
+        const modal = document.getElementById("imageModal");
+        const modalImg = document.getElementById("img01");
+        const closeModal = document.querySelector(".close-modal");
+
+        // Get all images that should be zoomable
+        const images = document.querySelectorAll('.screenshot-container img, .gallery-item img');
+
+        images.forEach(img => {
+            img.onclick = function () {
+                modal.classList.add("active");
+                modalImg.src = this.src;
+                document.body.style.overflow = "hidden"; // Prevent scrolling
+            }
+        });
+
+        // Close modal when clicking on (x)
+        closeModal.onclick = function () {
+            closeModalFunc();
+        }
+
+        // Close modal when clicking outside the image
+        modal.onclick = function (event) {
+            if (event.target === modal || event.target === modalImg) {
+                closeModalFunc();
+            }
+        }
+
+        function closeModalFunc() {
+            modal.classList.remove("active");
+            document.body.style.overflow = "auto";
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === "Escape" && modal.classList.contains("active")) {
+                closeModalFunc();
+            }
+        });
+    </script>
 </body>
 
 </html>

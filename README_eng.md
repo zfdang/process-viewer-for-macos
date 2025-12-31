@@ -14,11 +14,14 @@ A native macOS application for viewing and monitoring system processes with a hi
 ![Main Interface](docs/interface.png)
 
 ![Search](docs/interface-search.png)
+ 
+![Network Connections](docs/interface-conns-zh.png)
 
 ## Features
 
 - **Hierarchical Process Tree**: View processes in a parent-child tree structure
 - **Flat View Mode**: Toggle between hierarchy and flat list view
+- **Network Connections**: View active network connections for any process, including local/remote addresses and ports
 - **Multilingual Support**: English and Chinese with auto-detection and manual override
 - **Resizable Columns**: Drag column borders to adjust width
 - **Sortable Columns**: Click column headers to sort
@@ -37,6 +40,7 @@ A native macOS application for viewing and monitoring system processes with a hi
 |--------|-------------|
 | PID | Process ID |
 | Name | Process name with app icon |
+| Connections | Active network connection count |
 | CPU % | CPU usage (color-coded) |
 | User | Owner username |
 | Pri/Nice | Priority and nice value |
