@@ -44,8 +44,8 @@ A native macOS application for viewing and monitoring system processes with a hi
 |--------|-------------|
 | PID | Process ID |
 | Name | Process name with app icon |
-| Connections | Active network connection count |
 | CPU % | CPU usage (color-coded) |
+| Connections | Active network connection count |
 | User | Owner username |
 | Pri/Nice | Priority and nice value |
 | Res Mem | Resident memory usage |

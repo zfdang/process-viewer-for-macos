@@ -140,14 +140,19 @@
                 <img src="interface-search-zh.png" alt="搜索功能">
                 <figcaption>搜索和过滤</figcaption>
             </figure>
-            <figure class="gallery-item small">
+            <figure class="gallery-item">
+                <img src="interface-menu-zh.png" alt="右键菜单">
+                <figcaption>右键菜单</figcaption>
+            </figure>
+            <figure class="gallery-item">
                 <img src="interface-conns-zh.png" alt="网络连接">
                 <figcaption>网络连接</figcaption>
             </figure>
             <figure class="gallery-item small">
-                <img src="interface-menu-zh.png" alt="右键菜单">
-                <figcaption>右键菜单</figcaption>
+                <img src="interface-about-zh.jpeg" alt="关于">
+                <figcaption>关于</figcaption>
             </figure>
+
         </div>
     </section>
 
@@ -270,53 +275,55 @@
         <p class="copyright">
             © 2024 Process Viewer. 基于 MIT 许可证开源。
         </p>
-        <!-- Image Modal -->
-        <div id="imageModal" class="modal">
-            <span class="close-modal">&times;</span>
-            <img class="modal-content" id="img01">
-        </div>
+    </footer>
 
-        <!-- JavaScript for Image Zoom -->
-        <script>
-            const modal = document.getElementById("imageModal");
-            const modalImg = document.getElementById("img01");
-            const closeModal = document.querySelector(".close-modal");
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+        <span class="close-modal">&times;</span>
+        <img class="modal-content" id="img01">
+    </div>
 
-            // Get all images that should be zoomable
-            const images = document.querySelectorAll('.screenshot-container img, .gallery-item img');
+    <!-- JavaScript for Image Zoom -->
+    <script>
+        const modal = document.getElementById("imageModal");
+        const modalImg = document.getElementById("img01");
+        const closeModal = document.querySelector(".close-modal");
 
-            images.forEach(img => {
-                img.onclick = function () {
-                    modal.classList.add("active");
-                    modalImg.src = this.src;
-                    document.body.style.overflow = "hidden"; // Prevent scrolling
-                }
-            });
+        // Get all images that should be zoomable
+        const images = document.querySelectorAll('.screenshot-container img, .gallery-item img');
 
-            // Close modal when clicking on (x)
-            closeModal.onclick = function () {
+        images.forEach(img => {
+            img.onclick = function () {
+                modal.classList.add("active");
+                modalImg.src = this.src;
+                document.body.style.overflow = "hidden"; // Prevent scrolling
+            }
+        });
+
+        // Close modal when clicking on (x)
+        closeModal.onclick = function () {
+            closeModalFunc();
+        }
+
+        // Close modal when clicking outside the image
+        modal.onclick = function (event) {
+            if (event.target === modal || event.target === modalImg) {
                 closeModalFunc();
             }
+        }
 
-            // Close modal when clicking outside the image
-            modal.onclick = function (event) {
-                if (event.target === modal || event.target === modalImg) {
-                    closeModalFunc();
-                }
+        function closeModalFunc() {
+            modal.classList.remove("active");
+            document.body.style.overflow = "auto";
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === "Escape" && modal.classList.contains("active")) {
+                closeModalFunc();
             }
-
-            function closeModalFunc() {
-                modal.classList.remove("active");
-                document.body.style.overflow = "auto";
-            }
-
-            // Close modal with Escape key
-            document.addEventListener('keydown', function (event) {
-                if (event.key === "Escape" && modal.classList.contains("active")) {
-                    closeModalFunc();
-                }
-            });
-        </script>
+        });
+    </script>
 </body>
 
 </html>
