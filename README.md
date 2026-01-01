@@ -19,7 +19,7 @@
 
 ![网络连接](docs/interface-conns-zh.png)
 
-![关于窗口](docs/interface-about.png)
+![关于窗口](docs/interface-about.jpeg)
 
 ## 功能特性
 
