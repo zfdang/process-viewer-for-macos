@@ -214,17 +214,31 @@ struct ProcessOutlineView: NSViewRepresentable {
     
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let outlineView = nsView.documentView as? NSOutlineView else { return }
-        
+
         let isFirstLoad = !context.coordinator.hasInitialized
-        
-        // Detect switching from flat to hierarchy view
-        let switchedToHierarchy = showHierarchy && !context.coordinator.lastShowHierarchy
+        let previousShowHierarchy = context.coordinator.lastShowHierarchy
+        let switchedToHierarchy = showHierarchy && !previousShowHierarchy
+        let needsReload = isFirstLoad ||
+            context.coordinator.lastRefreshTrigger != refreshTrigger ||
+            context.coordinator.lastFilterKey != filterKey ||
+            previousShowHierarchy != showHierarchy
+
+        if outlineView.rowHeight != rowHeight {
+            outlineView.rowHeight = rowHeight
+        }
+
+        context.coordinator.parent = self
+        outlineViewRef.outlineView = outlineView
+
+        guard needsReload else { return }
+
+        context.coordinator.lastRefreshTrigger = refreshTrigger
+        context.coordinator.lastFilterKey = filterKey
         context.coordinator.lastShowHierarchy = showHierarchy
-        
+
         context.coordinator.withStatePreservation {
             // Update data
             context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
-            context.coordinator.parent = self
             
             // Apply current sort descriptor to new data
             if let sortDescriptor = outlineView.sortDescriptors.first {
@@ -245,9 +259,6 @@ struct ProcessOutlineView: NSViewRepresentable {
                 }
             }
         }
-        
-        // Update reference
-        outlineViewRef.outlineView = outlineView
     }
     
     // MARK: - Coordinator
@@ -262,6 +273,8 @@ struct ProcessOutlineView: NSViewRepresentable {
         
         // Track last hierarchy state to detect flat->hierarchy switch
         var lastShowHierarchy = true
+        var lastRefreshTrigger = -1
+        var lastFilterKey = ""
         
         // Cache for app icons to avoid repeated disk access
         private var iconCache: [String: NSImage] = [:]
@@ -440,9 +453,9 @@ struct ProcessOutlineView: NSViewRepresentable {
                     imageView.image = getAppIcon(for: process)
                 }
             case .cpuColumn:
-                textField.stringValue = String(format: "%.1f", process.cpuUsage)
+                textField.stringValue = process.formattedCPUUsage
                 textField.alignment = .center
-                textField.textColor = cpuColor(process.cpuUsage)
+                textField.textColor = process.hasTaskMetrics ? cpuColor(process.cpuUsage) : .secondaryLabelColor
             case .userColumn:
                 textField.stringValue = process.user
                 textField.alignment = .left
@@ -451,13 +464,13 @@ struct ProcessOutlineView: NSViewRepresentable {
                 textField.stringValue = "\(process.priority)/\(process.nice)"
                 textField.alignment = .center
             case .resMemColumn:
-                textField.stringValue = ProcessInfo.formatMemory(process.residentMemory)
+                textField.stringValue = process.formattedResidentMemory
                 textField.alignment = .right
             case .virMemColumn:
-                textField.stringValue = ProcessInfo.formatMemory(process.virtualMemory)
+                textField.stringValue = process.formattedVirtualMemory
                 textField.alignment = .right
             case .threadsColumn:
-                textField.stringValue = "\(process.threadCount)"
+                textField.stringValue = process.formattedThreadCount
                 textField.alignment = .center
             case .connectionsColumn:
                 break // Handled above
