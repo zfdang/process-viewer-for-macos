@@ -36,6 +36,38 @@ private struct ConnectionCountCacheEntry {
     let refreshedAt: UInt64
 }
 
+private struct ProcessFetchSnapshot {
+    let processes: [ProcessInfo]
+    let hierarchy: [ProcessInfo]
+    let samples: [pid_t: CPUSample]
+    let metadataCache: [pid_t: ProcessMetadataCacheEntry]
+    let userCache: [uid_t: String]
+    let connectionCache: [pid_t: ConnectionCountCacheEntry]
+}
+
+private func resolveUsername(for uid: uid_t, cache: inout [uid_t: String]) -> String {
+    if let cached = cache[uid] {
+        return cached
+    }
+
+    let configuredBufferSize = Int(sysconf(Int32(_SC_GETPW_R_SIZE_MAX)))
+    let bufferSize = configuredBufferSize > 0 ? configuredBufferSize : defaultGetpwuidBufferSize
+
+    var pwd = passwd()
+    var result: UnsafeMutablePointer<passwd>?
+    var buffer = [CChar](repeating: 0, count: bufferSize)
+
+    let username: String
+    if getpwuid_r(uid, &pwd, &buffer, buffer.count, &result) == 0, result != nil {
+        username = String(cString: pwd.pw_name)
+    } else {
+        username = "unknown"
+    }
+
+    cache[uid] = username
+    return username
+}
+
 // MARK: - Process Fetching (nonisolated)
 
 /// Helper enum with static methods for fetching processes (not MainActor isolated)
@@ -57,14 +89,7 @@ private enum ProcessFetcher {
         connectionCache: [pid_t: ConnectionCountCacheEntry],
         refreshConnections: Bool,
         connectionRefreshIntervalNs: UInt64 = defaultConnectionRefreshIntervalNs
-    ) async -> (
-        processes: [ProcessInfo],
-        hierarchy: [ProcessInfo],
-        samples: [pid_t: CPUSample],
-        metadataCache: [pid_t: ProcessMetadataCacheEntry],
-        userCache: [uid_t: String],
-        connectionCache: [pid_t: ConnectionCountCacheEntry]
-    ) {
+    ) async -> ProcessFetchSnapshot {
         var result: [ProcessInfo] = []
         var newSamples: [pid_t: CPUSample] = [:]
         var updatedMetadataCache = metadataCache
@@ -82,7 +107,14 @@ private enum ProcessFetcher {
 
         // First call to get buffer size
         guard sysctl(&mib, UInt32(mib.count), nil, &size, nil, 0) == 0 else {
-            return (result, [], newSamples, [:], updatedUserCache, [:])
+            return ProcessFetchSnapshot(
+                processes: result,
+                hierarchy: [],
+                samples: previousSamples,
+                metadataCache: updatedMetadataCache,
+                userCache: updatedUserCache,
+                connectionCache: connectionCache
+            )
         }
 
         // Allocate buffer
@@ -91,7 +123,14 @@ private enum ProcessFetcher {
 
         // Second call to get actual data
         guard sysctl(&mib, UInt32(mib.count), &procList, &size, nil, 0) == 0 else {
-            return (result, [], newSamples, [:], updatedUserCache, [:])
+            return ProcessFetchSnapshot(
+                processes: result,
+                hierarchy: [],
+                samples: previousSamples,
+                metadataCache: updatedMetadataCache,
+                userCache: updatedUserCache,
+                connectionCache: connectionCache
+            )
         }
 
         let actualCount = size / MemoryLayout<kinfo_proc>.stride
@@ -213,7 +252,14 @@ private enum ProcessFetcher {
         }.sorted { $0.id < $1.id }
 
         let hierarchy = buildHierarchy(from: finalResult)
-        return (finalResult, hierarchy, newSamples, updatedMetadataCache, updatedUserCache, updatedConnectionCache)
+        return ProcessFetchSnapshot(
+            processes: finalResult,
+            hierarchy: hierarchy,
+            samples: newSamples,
+            metadataCache: updatedMetadataCache,
+            userCache: updatedUserCache,
+            connectionCache: updatedConnectionCache
+        )
     }
 
     /// Build parent-child hierarchy from flat process list
@@ -340,7 +386,7 @@ private enum ProcessFetcher {
         let pathLength = proc_pidpath(pid, &pathBuffer, UInt32(PROC_PIDPATHINFO_MAXSIZE))
         let command = pathLength > 0 ? String(cString: pathBuffer) : fallbackName
         let name = displayName(command: command, fallbackName: fallbackName)
-        let user = username(for: cacheKey.uid, cache: &userCache)
+        let user = resolveUsername(for: cacheKey.uid, cache: &userCache)
 
         let metadata = ProcessMetadataCacheEntry(cacheKey: cacheKey, name: name, user: user, command: command)
         metadataCache[pid] = metadata
@@ -352,28 +398,6 @@ private enum ProcessFetcher {
         return command.split(separator: "/").last.map(String.init) ?? fallbackName
     }
 
-    private static func username(for uid: uid_t, cache: inout [uid_t: String]) -> String {
-        if let cached = cache[uid] {
-            return cached
-        }
-
-        let configuredBufferSize = Int(sysconf(Int32(_SC_GETPW_R_SIZE_MAX)))
-        let bufferSize = configuredBufferSize > 0 ? configuredBufferSize : defaultGetpwuidBufferSize
-
-        var pwd = passwd()
-        var result: UnsafeMutablePointer<passwd>?
-        var buffer = [CChar](repeating: 0, count: bufferSize)
-
-        let username: String
-        if getpwuid_r(uid, &pwd, &buffer, buffer.count, &result) == 0, result != nil {
-            username = String(cString: pwd.pw_name)
-        } else {
-            username = "unknown"
-        }
-
-        cache[uid] = username
-        return username
-    }
 }
 
 // MARK: - Process Monitor (MainActor)
@@ -402,19 +426,9 @@ class ProcessMonitor: ObservableObject {
 
     init() {
         currentUID = getuid()
-        let uidBufferSize = Int(sysconf(Int32(_SC_GETPW_R_SIZE_MAX)))
-        let resolvedBufferSize = uidBufferSize > 0 ? uidBufferSize : defaultGetpwuidBufferSize
-        var pwd = passwd()
-        var result: UnsafeMutablePointer<passwd>?
-        var buffer = [CChar](repeating: 0, count: resolvedBufferSize)
-
-        if getpwuid_r(currentUID, &pwd, &buffer, buffer.count, &result) == 0, result != nil {
-            currentUser = String(cString: pwd.pw_name)
-        } else {
-            currentUser = "unknown"
-        }
-
-        userCache[currentUID] = currentUser
+        var initialUserCache: [uid_t: String] = [:]
+        currentUser = resolveUsername(for: currentUID, cache: &initialUserCache)
+        userCache = initialUserCache
 
         Task {
             await refresh(forceRefreshConnections: true, priority: .userInitiated)
@@ -496,15 +510,16 @@ class ProcessMonitor: ObservableObject {
         }
 
         if !hierarchical {
-            return flatProcesses
-                .lazy
-                .filter(matches)
-                .map { proc in
-                    var flatProc = proc
-                    flatProc.children = []
-                    return flatProc
-                }
-                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            return Array(
+                flatProcesses
+                    .lazy
+                    .filter(matches)
+                    .map { proc in
+                        var flatProc = proc
+                        flatProc.children = []
+                        return flatProc
+                    }
+            )
         }
 
         return ProcessFetcher.filterTree(processes, predicate: matches)
