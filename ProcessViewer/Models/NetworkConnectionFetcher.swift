@@ -41,11 +41,8 @@ enum NetworkConnectionFetcher {
             if fdInfos[i].proc_fdtype == PROX_FDTYPE_SOCKET {
                 var socketInfo = socket_fdinfo()
                 let result = proc_pidfdinfo(pid, fdInfos[i].proc_fd, PROC_PIDFDSOCKETINFO, &socketInfo, Int32(PROC_PIDFDSOCKETINFO_SIZE))
-                if result == Int32(PROC_PIDFDSOCKETINFO_SIZE) {
-                    let family = socketInfo.psi.soi_family
-                    if family == AF_INET || family == AF_INET6 {
-                        count += 1
-                    }
+                if result == Int32(PROC_PIDFDSOCKETINFO_SIZE) && isCountableNetworkSocket(socketInfo) {
+                    count += 1
                 }
             }
         }
@@ -71,18 +68,22 @@ enum NetworkConnectionFetcher {
             var socketInfo = socket_fdinfo()
             let socketInfoSize = proc_pidfdinfo(pid, fdInfo.proc_fd, PROC_PIDFDSOCKETINFO, &socketInfo, Int32(PROC_PIDFDSOCKETINFO_SIZE))
             guard socketInfoSize == Int32(PROC_PIDFDSOCKETINFO_SIZE) else { continue }
-            
-            let family = socketInfo.psi.soi_family
-            guard family == AF_INET || family == AF_INET6 else { continue }
-            
-            let sockType = socketInfo.psi.soi_type
-            guard sockType == SOCK_STREAM || sockType == SOCK_DGRAM else { continue }
+
+            guard isCountableNetworkSocket(socketInfo) else { continue }
             
             if let conn = parseSocketInfo(socketInfo, fd: fdInfo.proc_fd) {
                 connections.append(conn)
             }
         }
         return connections
+    }
+
+    private static func isCountableNetworkSocket(_ info: socket_fdinfo) -> Bool {
+        let family = info.psi.soi_family
+        guard family == AF_INET || family == AF_INET6 else { return false }
+
+        let socketType = info.psi.soi_type
+        return socketType == SOCK_STREAM || socketType == SOCK_DGRAM
     }
     
     private static func parseSocketInfo(_ info: socket_fdinfo, fd: Int32) -> NetworkConnection? {

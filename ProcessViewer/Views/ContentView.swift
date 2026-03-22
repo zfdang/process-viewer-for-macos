@@ -33,7 +33,7 @@ struct ContentView: View {
                     processCount: filteredCount,
                     onRefresh: {
                         Task {
-                            await monitor.refresh()
+                            await monitor.refresh(forceRefreshConnections: true, priority: .userInitiated)
                         }
                     },
                     onExpandAll: {
@@ -137,6 +137,8 @@ struct ContentView: View {
     }
 }
 
+#if !DISABLE_PREVIEW
 #Preview {
     ContentView()
 }
+#endif

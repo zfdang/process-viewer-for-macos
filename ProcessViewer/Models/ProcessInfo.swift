@@ -14,6 +14,7 @@ struct ProcessInfo: Identifiable, Hashable {
     let nice: Int32            // Nice value
     let command: String        // Full command path
     var connectionCount: Int   // Number of network connections
+    let hasTaskMetrics: Bool   // Whether task-based metrics are available for this process
     var children: [ProcessInfo] // Child processes (for tree hierarchy)
     
     // Computed property to check if process has children
@@ -28,6 +29,22 @@ struct ProcessInfo: Identifiable, Hashable {
     
     static func == (lhs: ProcessInfo, rhs: ProcessInfo) -> Bool {
         lhs.id == rhs.id
+    }
+
+    var formattedCPUUsage: String {
+        hasTaskMetrics ? String(format: "%.1f", cpuUsage) : "--"
+    }
+
+    var formattedResidentMemory: String {
+        hasTaskMetrics ? Self.formatMemory(residentMemory) : "--"
+    }
+
+    var formattedVirtualMemory: String {
+        hasTaskMetrics ? Self.formatMemory(virtualMemory) : "--"
+    }
+
+    var formattedThreadCount: String {
+        hasTaskMetrics ? "\(threadCount)" : "--"
     }
     
     /// Format memory size to human-readable string
@@ -53,10 +70,10 @@ struct ProcessInfo: Identifiable, Hashable {
         \(L.s("desc.pid")): \(id)
         \(L.s("desc.name")): \(name)
         \(L.s("desc.user")): \(user)
-        \(L.s("desc.cpu")): \(String(format: "%.1f%%", cpuUsage))
-        \(L.s("desc.resMem")): \(ProcessInfo.formatMemory(residentMemory))
-        \(L.s("desc.virMem")): \(ProcessInfo.formatMemory(virtualMemory))
-        \(L.s("desc.threads")): \(threadCount)
+        \(L.s("desc.cpu")): \(hasTaskMetrics ? "\(formattedCPUUsage)%" : "--")
+        \(L.s("desc.resMem")): \(formattedResidentMemory)
+        \(L.s("desc.virMem")): \(formattedVirtualMemory)
+        \(L.s("desc.threads")): \(formattedThreadCount)
         \(L.s("desc.prio")): \(priority)/\(nice)
         \(L.s("desc.command")): \(command)
         """
