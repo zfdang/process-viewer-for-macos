@@ -6,13 +6,16 @@ on:
       - main
       - master
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Fetch all history for commit count
       
@@ -34,6 +37,7 @@ jobs:
         run: |
           xcodebuild -scheme ProcessViewer \
             -configuration Release \
+            -destination 'generic/platform=macOS' \
             -archivePath build/ProcessViewer.xcarchive \
             archive \
             CODE_SIGN_IDENTITY="-" \
@@ -56,12 +60,21 @@ jobs:
       - name: Create ZIP
         run: |
           cd build/export
-          zip -r "../ProcessViewer-${{ steps.version.outputs.tag }}.zip" "Process Viewer.app"
+          ditto -c -k --keepParent "Process Viewer.app" "../ProcessViewer-${{ steps.version.outputs.tag }}.zip"
+
+      - name: Create checksums
+        run: |
+          cd build
+          shasum -a 256 \
+            "ProcessViewer-${{ steps.version.outputs.tag }}.dmg" \
+            "ProcessViewer-${{ steps.version.outputs.tag }}.zip" \
+            > "ProcessViewer-${{ steps.version.outputs.tag }}.sha256"
       
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: Process Viewer ${{ steps.version.outputs.tag }}
           body: |
             ## Process Viewer ${{ steps.version.outputs.tag }}
@@ -71,6 +84,7 @@ jobs:
             ### Downloads
             - **DMG**: ProcessViewer-${{ steps.version.outputs.tag }}.dmg
             - **ZIP**: ProcessViewer-${{ steps.version.outputs.tag }}.zip
+            - **SHA256**: ProcessViewer-${{ steps.version.outputs.tag }}.sha256
             
             ### Installation
             1. Download the DMG or ZIP file
@@ -79,6 +93,8 @@ jobs:
           files: |
             build/ProcessViewer-${{ steps.version.outputs.tag }}.dmg
             build/ProcessViewer-${{ steps.version.outputs.tag }}.zip
+            build/ProcessViewer-${{ steps.version.outputs.tag }}.sha256
+          fail_on_unmatched_files: true
           draft: false
           prerelease: false
         env:
