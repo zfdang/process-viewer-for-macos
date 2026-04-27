@@ -16,7 +16,47 @@ struct ProcessInfo: Identifiable, Hashable {
     var connectionCount: Int   // Number of network connections
     let hasTaskMetrics: Bool   // Whether task-based metrics are available for this process
     var children: [ProcessInfo] // Child processes (for tree hierarchy)
-    
+
+    // Precomputed lowercase forms used by the search predicate. Computing these
+    // once per fetch avoids re-allocating lowercased copies on every keystroke
+    // (the search predicate runs over every process for each character typed).
+    let lowercaseName: String
+    let lowercaseCommand: String
+
+    init(
+        id: pid_t,
+        name: String,
+        ppid: pid_t,
+        user: String,
+        cpuUsage: Double,
+        residentMemory: UInt64,
+        virtualMemory: UInt64,
+        threadCount: Int32,
+        priority: Int32,
+        nice: Int32,
+        command: String,
+        connectionCount: Int,
+        hasTaskMetrics: Bool,
+        children: [ProcessInfo]
+    ) {
+        self.id = id
+        self.name = name
+        self.ppid = ppid
+        self.user = user
+        self.cpuUsage = cpuUsage
+        self.residentMemory = residentMemory
+        self.virtualMemory = virtualMemory
+        self.threadCount = threadCount
+        self.priority = priority
+        self.nice = nice
+        self.command = command
+        self.connectionCount = connectionCount
+        self.hasTaskMetrics = hasTaskMetrics
+        self.children = children
+        self.lowercaseName = name.lowercased()
+        self.lowercaseCommand = command.lowercased()
+    }
+
     // Computed property to check if process has children
     var hasChildren: Bool {
         !children.isEmpty

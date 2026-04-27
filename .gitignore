@@ -58,3 +58,5 @@ fastlane/test_output
 *.bak
 *.tmp
 *.o
+.omc/
+.claude/

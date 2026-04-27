@@ -4,7 +4,19 @@ import Darwin
 // Constants not available in Swift's Darwin module
 private let PROC_PIDPATHINFO_MAXSIZE: Int32 = 4096
 private let defaultGetpwuidBufferSize = 16_384
-private let defaultConnectionRefreshIntervalNs: UInt64 = 15_000_000_000
+// Connection-count cache TTLs. The fetcher is the single biggest CPU consumer
+// because it runs `proc_pidinfo` per process and per file descriptor.
+//
+// Tradeoff: most macOS processes never open a network socket, so we recheck
+// zero-connection processes at 2x the active-process interval. Processes that
+// already hold sockets stay on the original 15 s schedule — those are the ones
+// users typically care about for "live" updates. A previously-zero process that
+// suddenly opens a socket may take up to `zeroConnectionRefreshIntervalNs`
+// before its count updates in the auto-refresh path; manual refresh (⌘R) sets
+// `forceRefreshConnections` and bypasses the cache entirely for the impatient
+// case.
+private let activeConnectionRefreshIntervalNs: UInt64 = 15_000_000_000  // 15s for processes with sockets
+private let zeroConnectionRefreshIntervalNs: UInt64 = 30_000_000_000    // 30s for processes with no sockets
 private let maxConnectionWorkers = 4
 
 // MARK: - CPU Sample Data
@@ -87,8 +99,7 @@ private enum ProcessFetcher {
         metadataCache: [pid_t: ProcessMetadataCacheEntry],
         userCache: [uid_t: String],
         connectionCache: [pid_t: ConnectionCountCacheEntry],
-        refreshConnections: Bool,
-        connectionRefreshIntervalNs: UInt64 = defaultConnectionRefreshIntervalNs
+        refreshConnections: Bool
     ) async -> ProcessFetchSnapshot {
         var result: [ProcessInfo] = []
         var newSamples: [pid_t: CPUSample] = [:]
@@ -228,14 +239,17 @@ private enum ProcessFetcher {
             guard let cacheKey = currentKeys[proc.id] else { continue }
 
             if !refreshConnections,
-               let cachedCount = updatedConnectionCache[proc.id],
-               cachedCount.cacheKey == cacheKey,
-               nowNs >= cachedCount.refreshedAt,
-               nowNs - cachedCount.refreshedAt < connectionRefreshIntervalNs {
-                counts[proc.id] = cachedCount.count
-            } else {
-                staleConnectionPIDs.append(proc.id)
+               let cached = updatedConnectionCache[proc.id],
+               cached.cacheKey == cacheKey,
+               nowNs >= cached.refreshedAt {
+                let ttl = cached.count == 0 ? zeroConnectionRefreshIntervalNs
+                                            : activeConnectionRefreshIntervalNs
+                if nowNs - cached.refreshedAt < ttl {
+                    counts[proc.id] = cached.count
+                    continue
+                }
             }
+            staleConnectionPIDs.append(proc.id)
         }
 
         let fetchedCounts = await fetchConnectionCounts(for: staleConnectionPIDs)
@@ -411,7 +425,7 @@ class ProcessMonitor: ObservableObject {
     @Published var refreshCount: Int = 0
 
     private var timer: Timer?
-    private var refreshInterval: TimeInterval = 3.0
+    private var refreshInterval: TimeInterval = 5.0
     private let currentUID: uid_t
     private let currentUser: String
 
@@ -441,7 +455,7 @@ class ProcessMonitor: ObservableObject {
     }
 
     /// Start automatic refresh with specified interval
-    func startAutoRefresh(interval: TimeInterval = 3.0) {
+    func startAutoRefresh(interval: TimeInterval = 5.0) {
         refreshInterval = interval
         stopAutoRefresh()
 
@@ -450,7 +464,10 @@ class ProcessMonitor: ObservableObject {
                 await self?.refresh(priority: .utility)
             }
         }
-        timer?.tolerance = min(refreshInterval * 0.2, 1.0)
+        // Generous tolerance lets macOS coalesce this timer with other fires,
+        // dropping wakeups on battery — a process viewer doesn't need sub-second
+        // accuracy on its refresh cadence.
+        timer?.tolerance = min(refreshInterval * 0.4, 2.0)
     }
 
     /// Stop automatic refresh
@@ -549,8 +566,11 @@ class ProcessMonitor: ObservableObject {
         guard !searchText.isEmpty else { return true }
 
         let lowercasedSearch = searchText.lowercased()
-        return process.name.lowercased().contains(lowercasedSearch) ||
-            process.command.lowercased().contains(lowercasedSearch) ||
+        // ProcessInfo precomputes lowercase fields once per fetch — avoids
+        // re-lowercasing both name and command for every process on every
+        // keystroke (the predicate also runs in two passes per body update).
+        return process.lowercaseName.contains(lowercasedSearch) ||
+            process.lowercaseCommand.contains(lowercasedSearch) ||
             String(process.id).contains(searchText)
     }
 }

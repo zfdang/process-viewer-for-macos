@@ -33,18 +33,22 @@ class OutlineViewReference: ObservableObject {
 
 // MARK: - Process Node Wrapper (for NSOutlineView)
 
-/// Wrapper class for ProcessInfo to work with NSOutlineView (requires reference types)
+/// Wrapper class for ProcessInfo to work with NSOutlineView (requires reference types).
+///
+/// Instances are reused across refreshes (keyed by PID) so NSOutlineView's internal
+/// item-identity tracking — expansion state, selection, scroll position — is preserved
+/// automatically without an O(N) save/restore walk on every refresh tick.
 class ProcessNode: NSObject {
-    let process: ProcessInfo
+    var process: ProcessInfo
     var children: [ProcessNode]
-    
+
     init(process: ProcessInfo) {
         self.process = process
         self.children = []
         super.init()
         self.children = process.children.map { ProcessNode(process: $0) }
     }
-    
+
     var isExpandable: Bool {
         !children.isEmpty
     }
@@ -236,27 +240,24 @@ struct ProcessOutlineView: NSViewRepresentable {
         context.coordinator.lastFilterKey = filterKey
         context.coordinator.lastShowHierarchy = showHierarchy
 
-        context.coordinator.withStatePreservation {
-            // Update data
-            context.coordinator.rootNodes = processes.map { ProcessNode(process: $0) }
-            
-            // Apply current sort descriptor to new data
-            if let sortDescriptor = outlineView.sortDescriptors.first {
-                context.coordinator.applySortDescriptor(sortDescriptor)
-            }
-            
-            // Reload data
-            outlineView.reloadData()
-            
-            if isFirstLoad {
-                // First load - expand all nodes
-                outlineView.expandItem(nil, expandChildren: true)
-                context.coordinator.hasInitialized = true
-            } else if switchedToHierarchy {
-                // Switched from flat to hierarchy - expand first level
-                for node in context.coordinator.rootNodes {
-                    outlineView.expandItem(node, expandChildren: false)
-                }
+        // Merge fresh data into existing ProcessNode instances (keyed by PID).
+        // This is what makes the rest of the path cheap — expansion state stays
+        // attached to the reused references, so we don't need to walk the tree
+        // collecting/restoring expanded PIDs every refresh.
+        context.coordinator.mergeNodes(from: processes)
+
+        if let sortDescriptor = outlineView.sortDescriptors.first {
+            context.coordinator.applySortDescriptor(sortDescriptor)
+        }
+
+        context.coordinator.reloadPreservingState()
+
+        if isFirstLoad {
+            outlineView.expandItem(nil, expandChildren: true)
+            context.coordinator.hasInitialized = true
+        } else if switchedToHierarchy {
+            for node in context.coordinator.rootNodes {
+                outlineView.expandItem(node, expandChildren: false)
             }
         }
     }
@@ -267,58 +268,59 @@ struct ProcessOutlineView: NSViewRepresentable {
         var parent: ProcessOutlineView
         var rootNodes: [ProcessNode] = []
         weak var outlineView: NSOutlineView?
-        
+
+        // PID -> ProcessNode lookup, used to reuse node instances across
+        // refreshes. Reusing references keeps NSOutlineView's expansion and
+        // selection state alive without an O(N) save/restore walk every tick.
+        private var nodeIndex: [pid_t: ProcessNode] = [:]
+
         // Track if view has been initialized (for first load expand all)
         var hasInitialized = false
-        
+
         // Track last hierarchy state to detect flat->hierarchy switch
         var lastShowHierarchy = true
         var lastRefreshTrigger = -1
         var lastFilterKey = ""
-        
-        // Cache for app icons to avoid repeated disk access
+
+        // Cache for app icons to avoid repeated disk access. Bounded so the
+        // cache cannot grow without limit on long-running sessions where
+        // processes come and go.
         private var iconCache: [String: NSImage] = [:]
+        private let iconCacheLimit = 256
         private let defaultIcon: NSImage = NSWorkspace.shared.icon(forFile: "/usr/bin/env")
-        
+
         init(_ parent: ProcessOutlineView) {
             self.parent = parent
-            self.rootNodes = parent.processes.map { ProcessNode(process: $0) }
+            super.init()
+            // Must come after super.init() — `mergeNodes` is an instance method
+            // and Swift's two-phase init forbids calling methods on self until
+            // base initialization is complete.
+            mergeNodes(from: parent.processes)
         }
         
+        // MARK: - Tree Reuse
+
+        /// Rebuilds `rootNodes` by merging fresh ProcessInfo data into existing
+        /// ProcessNode instances keyed by PID. Reusing references is what lets
+        /// NSOutlineView keep expansion state automatically across reloadData.
+        func mergeNodes(from processes: [ProcessInfo]) {
+            var nextIndex: [pid_t: ProcessNode] = [:]
+            nextIndex.reserveCapacity(nodeIndex.count + processes.count)
+            rootNodes = processes.map { merge(process: $0, into: &nextIndex) }
+            nodeIndex = nextIndex
+        }
+
+        private func merge(process: ProcessInfo, into nextIndex: inout [pid_t: ProcessNode]) -> ProcessNode {
+            let node = nodeIndex[process.id] ?? ProcessNode(process: process)
+            node.process = process
+            node.children = process.children.map { merge(process: $0, into: &nextIndex) }
+            nextIndex[process.id] = node
+            return node
+        }
+
         // MARK: - State Preservation
-        
-        func getExpandedPIDs() -> Set<pid_t> {
-            guard let outlineView = outlineView else { return [] }
-            
-            var pids = Set<pid_t>()
-            collectExpandedPIDs(from: rootNodes, outlineView: outlineView, into: &pids)
-            return pids
-        }
-        
-        private func collectExpandedPIDs(from nodes: [ProcessNode], outlineView: NSOutlineView, into pids: inout Set<pid_t>) {
-            for node in nodes {
-                if outlineView.isItemExpanded(node) {
-                    pids.insert(node.process.id)
-                }
-                collectExpandedPIDs(from: node.children, outlineView: outlineView, into: &pids)
-            }
-        }
-        
-        func restoreExpandedState(_ pids: Set<pid_t>) {
-            guard let outlineView = outlineView else { return }
-            expandNodes(rootNodes, outlineView: outlineView, expandedPIDs: pids)
-        }
-        
-        private func expandNodes(_ nodes: [ProcessNode], outlineView: NSOutlineView, expandedPIDs: Set<pid_t>) {
-            for node in nodes {
-                if expandedPIDs.contains(node.process.id) {
-                    outlineView.expandItem(node, expandChildren: false)
-                }
-                expandNodes(node.children, outlineView: outlineView, expandedPIDs: expandedPIDs)
-            }
-        }
-        
-        func getSelectedPID() -> pid_t? {
+
+        private func selectedPID() -> pid_t? {
             guard let outlineView = outlineView else { return nil }
             let row = outlineView.selectedRow
             if row >= 0, let node = outlineView.item(atRow: row) as? ProcessNode {
@@ -326,38 +328,34 @@ struct ProcessOutlineView: NSViewRepresentable {
             }
             return nil
         }
-        
-        func restoreSelection(_ pid: pid_t) {
+
+        private func restoreSelection(_ pid: pid_t) {
             guard let outlineView = outlineView else { return }
-            
-            // Find the row with matching PID
             for row in 0..<outlineView.numberOfRows {
                 if let node = outlineView.item(atRow: row) as? ProcessNode,
                    node.process.id == pid {
                     outlineView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-                    break
+                    return
                 }
             }
         }
-        
-        /// Encapsulates saving and restoring outline view state (expanded nodes, selection, scroll position)
-        func withStatePreservation(_ block: () -> Void) {
+
+        /// Reload the outline view while preserving selection and scroll position.
+        /// Expansion state is preserved automatically by NSOutlineView because
+        /// `mergeNodes(from:)` reuses ProcessNode references — no O(N) walk needed.
+        func reloadPreservingState() {
             guard let outlineView = outlineView,
                   let scrollView = outlineView.enclosingScrollView else {
-                block()
+                outlineView?.reloadData()
                 return
             }
-            
-            // Save state
+
             let scrollPosition = scrollView.contentView.bounds.origin
-            let expandedPIDs = getExpandedPIDs()
-            let selectedPID = getSelectedPID()
-            
-            block()
-            
-            // Restore state
-            restoreExpandedState(expandedPIDs)
-            if let pid = selectedPID {
+            let pid = selectedPID()
+
+            outlineView.reloadData()
+
+            if let pid = pid {
                 restoreSelection(pid)
             }
             scrollView.contentView.scroll(to: scrollPosition)
@@ -520,12 +518,12 @@ struct ProcessOutlineView: NSViewRepresentable {
                 }
             }
             
-            // Sort current data immediately with state preservation
-            withStatePreservation {
-                sortNodes(&rootNodes, by: sortDescriptor)
-                outlineView.reloadData()
-                outlineView.needsDisplay = true
-            }
+            // Sort current data and reload. Expansion state is preserved by
+            // identity (sortNodes only reorders the existing ProcessNode
+            // references, it never recreates them).
+            sortNodes(&rootNodes, by: sortDescriptor)
+            reloadPreservingState()
+            outlineView.needsDisplay = true
         }
         
         private func sortNodes(_ nodes: inout [ProcessNode], by descriptor: NSSortDescriptor) {
@@ -620,21 +618,30 @@ struct ProcessOutlineView: NSViewRepresentable {
         /// Get app icon for a process (with caching)
         private func getAppIcon(for process: ProcessInfo) -> NSImage {
             let path = process.command
-            
-            // Check cache first
+
             if let cachedIcon = iconCache[path] {
                 return cachedIcon
             }
-            
-            // Try to get icon using standard utility
-            if let icon = ProcessUtils.getAppIcon(for: path) {
-                iconCache[path] = icon
-                return icon
+
+            let icon = ProcessUtils.getAppIcon(for: path) ?? defaultIcon
+            cacheIcon(icon, forKey: path)
+            return icon
+        }
+
+        /// Insert into the icon cache while keeping it bounded. NSImage
+        /// instances are small but a long-running session can otherwise
+        /// accumulate one entry per unique command path it has ever seen.
+        private func cacheIcon(_ icon: NSImage, forKey key: String) {
+            if iconCache.count >= iconCacheLimit {
+                // Drop the oldest ~25% of entries. Dictionary iteration order
+                // in Swift is unstable but consistent enough for cheap
+                // approximate eviction here.
+                let dropCount = iconCache.count - (iconCacheLimit * 3 / 4)
+                for staleKey in iconCache.keys.prefix(dropCount) {
+                    iconCache.removeValue(forKey: staleKey)
+                }
             }
-            
-            // Fallback to default icon
-            iconCache[path] = defaultIcon
-            return defaultIcon
+            iconCache[key] = icon
         }
         
         private func cpuColor(_ usage: Double) -> NSColor {
