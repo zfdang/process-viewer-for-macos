@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a single process with its properties and child processes
-struct ProcessInfo: Identifiable, Hashable {
+struct ProcessInfo: Identifiable, Hashable, Sendable {
     let id: pid_t              // PID
     let name: String           // Process name
     let ppid: pid_t            // Parent PID
@@ -13,8 +13,9 @@ struct ProcessInfo: Identifiable, Hashable {
     let priority: Int32        // Process priority
     let nice: Int32            // Nice value
     let command: String        // Full command path
-    var connectionCount: Int   // Number of network connections
+    var connectionCount: Int?  // Number of network connections; nil when the kernel refuses access
     let hasTaskMetrics: Bool   // Whether task-based metrics are available for this process
+    let isApp: Bool            // Whether the executable lives inside an .app bundle / Applications
     var children: [ProcessInfo] // Child processes (for tree hierarchy)
 
     // Precomputed lowercase forms used by the search predicate. Computing these
@@ -35,8 +36,9 @@ struct ProcessInfo: Identifiable, Hashable {
         priority: Int32,
         nice: Int32,
         command: String,
-        connectionCount: Int,
+        connectionCount: Int?,
         hasTaskMetrics: Bool,
+        isApp: Bool,
         children: [ProcessInfo]
     ) {
         self.id = id
@@ -52,6 +54,7 @@ struct ProcessInfo: Identifiable, Hashable {
         self.command = command
         self.connectionCount = connectionCount
         self.hasTaskMetrics = hasTaskMetrics
+        self.isApp = isApp
         self.children = children
         self.lowercaseName = name.lowercased()
         self.lowercaseCommand = command.lowercased()
@@ -86,6 +89,23 @@ struct ProcessInfo: Identifiable, Hashable {
     var formattedThreadCount: String {
         hasTaskMetrics ? "\(threadCount)" : "--"
     }
+
+    var formattedConnectionCount: String {
+        connectionCount.map { "\($0)" } ?? "--"
+    }
+
+    /// Sort key for the connections column: unknown counts sort below zero so
+    /// "no data" never masquerades as "no connections" at the top of the list.
+    var connectionSortValue: Int {
+        connectionCount ?? -1
+    }
+
+    /// Whether `command` points into an application bundle. Computed once per
+    /// process (the path never changes for a live PID) so the "Apps" filter is a
+    /// boolean check instead of two substring searches per process per redraw.
+    static func isAppBundleCommand(_ command: String) -> Bool {
+        command.contains("/Applications/") || command.contains(".app/")
+    }
     
     /// Format memory size to human-readable string
     static func formatMemory(_ bytes: UInt64) -> String {
@@ -114,6 +134,7 @@ struct ProcessInfo: Identifiable, Hashable {
         \(L.s("desc.resMem")): \(formattedResidentMemory)
         \(L.s("desc.virMem")): \(formattedVirtualMemory)
         \(L.s("desc.threads")): \(formattedThreadCount)
+        \(L.s("desc.connections")): \(formattedConnectionCount)
         \(L.s("desc.prio")): \(priority)/\(nice)
         \(L.s("desc.command")): \(command)
         """

@@ -198,6 +198,9 @@ func parsePSSnapshot(pid: pid_t) -> PSSnapshot? {
     )
 }
 
+// Same rule as NetworkConnectionFetcher.isDisplayableNetworkSocket in the app:
+// every IPv4/IPv6 TCP or UDP socket, including ones not yet bound or connected.
+// `lsof -i` lists those as `*:*`, so counting them keeps this comparison exact.
 func isCountableNetworkSocket(_ info: socket_fdinfo) -> Bool {
     let family = info.psi.soi_family
     guard family == AF_INET || family == AF_INET6 else { return false }
@@ -206,15 +209,18 @@ func isCountableNetworkSocket(_ info: socket_fdinfo) -> Bool {
     return socketType == SOCK_STREAM || socketType == SOCK_DGRAM
 }
 
-func connectionCount(for pid: pid_t) -> Int {
+/// Returns nil when the kernel refuses to expose the descriptor table (EPERM),
+/// which is what the app shows as "--".
+func connectionCount(for pid: pid_t) -> Int? {
+    errno = 0
     let bufferSize = proc_pidinfo(pid, procPidListFds, 0, nil, 0)
-    guard bufferSize > 0 else { return 0 }
+    guard bufferSize > 0 else { return errno == EPERM ? nil : 0 }
 
-    let fdCount = Int(bufferSize) / procPidListFdSize
+    let fdCount = Int(bufferSize) / procPidListFdSize + 32
     var fdInfos = [proc_fdinfo](repeating: proc_fdinfo(), count: fdCount)
 
-    let actualSize = proc_pidinfo(pid, procPidListFds, 0, &fdInfos, bufferSize)
-    guard actualSize > 0 else { return 0 }
+    let actualSize = proc_pidinfo(pid, procPidListFds, 0, &fdInfos, Int32(fdCount * procPidListFdSize))
+    guard actualSize > 0 else { return errno == EPERM ? nil : 0 }
 
     let actualCount = Int(actualSize) / procPidListFdSize
     var count = 0
@@ -295,7 +301,7 @@ func benchmark() {
 
     measure("connectionCount(all)") {
         pids.reduce(0) { partial, pid in
-            partial + connectionCount(for: pid)
+            partial + (connectionCount(for: pid) ?? 0)
         }
     }
 
@@ -338,7 +344,7 @@ func validate(sampleCount: Int, intervalSeconds: Double, includeConnections: Boo
             nice: psSnapshot.nice
         )
 
-        let appConnections = includeConnections ? connectionCount(for: candidate.pid) : 0
+        let appConnections = includeConnections ? connectionCount(for: candidate.pid) : nil
         let systemConnections = includeConnections ? lsofConnectionCount(for: candidate.pid) : nil
 
         rows.append(
@@ -352,7 +358,7 @@ func validate(sampleCount: Int, intervalSeconds: Double, includeConnections: Boo
                 psPriority: psSnapshot.priority,
                 niceMatches: taskMetrics.nice == psSnapshot.nice,
                 userMatches: candidate.user == psSnapshot.user,
-                connectionMatches: includeConnections ? (systemConnections.map { $0 == appConnections }) : nil
+                connectionMatches: includeConnections ? (systemConnections.map { $0 == (appConnections ?? -1) }) : nil
             )
         )
     }

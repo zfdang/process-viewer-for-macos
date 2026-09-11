@@ -13,15 +13,13 @@ struct ContentView: View {
     
     @EnvironmentObject private var localization: L
     
-    private var filteredProcesses: [ProcessInfo] {
-        monitor.filteredProcesses(filter: selectedFilter, searchText: searchText, hierarchical: showHierarchy)
-    }
-    
-    private var filteredCount: Int {
-        monitor.filteredCount(filter: selectedFilter, searchText: searchText)
-    }
-    
     var body: some View {
+        // Both values come from one memoized pass inside the monitor; reading
+        // them once here keeps body evaluation cheap even when SwiftUI runs it
+        // several times per refresh.
+        let filteredProcesses = monitor.filteredProcesses(filter: selectedFilter, searchText: searchText, hierarchical: showHierarchy)
+        let filteredCount = monitor.filteredCount(filter: selectedFilter, searchText: searchText, hierarchical: showHierarchy)
+
         ZStack {
             VStack(spacing: 0) {
                 // Toolbar with filter, search, and action buttons
@@ -33,7 +31,7 @@ struct ContentView: View {
                     processCount: filteredCount,
                     onRefresh: {
                         Task {
-                            await monitor.refresh(forceRefreshConnections: true, priority: .userInitiated)
+                            await monitor.refresh(userInitiated: true)
                         }
                     },
                     onExpandAll: {
@@ -120,6 +118,9 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 1000, minHeight: 600)
+        .background(WindowVisibilityObserver { visible in
+            monitor.setWindowVisible(visible)
+        })
         .onAppear {
             // Start auto-refresh
             monitor.startAutoRefresh(interval: 5.0)
@@ -133,6 +134,68 @@ struct ContentView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 showCopiedToast = false
             }
+        }
+    }
+}
+
+// MARK: - Window Visibility
+
+/// Zero-size helper view that reports whether its hosting window is actually
+/// on screen (not hidden, minimized, or fully covered by other windows). The
+/// monitor uses this to suspend sampling while nobody can see the table.
+private struct WindowVisibilityObserver: NSViewRepresentable {
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> ObserverView {
+        let view = ObserverView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ nsView: ObserverView, context: Context) {
+        nsView.onChange = onChange
+    }
+
+    final class ObserverView: NSView {
+        var onChange: ((Bool) -> Void)?
+        private var observers: [NSObjectProtocol] = []
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+
+            guard let window = window else { return }
+            let center = NotificationCenter.default
+            let windowNames: [Notification.Name] = [
+                NSWindow.didChangeOcclusionStateNotification,
+                NSWindow.didMiniaturizeNotification,
+                NSWindow.didDeminiaturizeNotification,
+                // Belt and braces for the initial appearance: the view can join
+                // the window before it is ordered on screen, and becoming key /
+                // main is a second, independent signal that it now is.
+                NSWindow.didBecomeKeyNotification,
+                NSWindow.didBecomeMainNotification,
+            ]
+            for name in windowNames {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    self?.report()
+                })
+            }
+            observers.append(center.addObserver(forName: NSApplication.didUnhideNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.report()
+            })
+            report()
+        }
+
+        private func report() {
+            guard let window = window else { return }
+            let visible = window.occlusionState.contains(.visible) && !window.isMiniaturized
+            onChange?(visible)
+        }
+
+        deinit {
+            observers.forEach(NotificationCenter.default.removeObserver)
         }
     }
 }

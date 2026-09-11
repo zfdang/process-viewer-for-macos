@@ -102,6 +102,7 @@ class L: ObservableObject {
         "desc.resMem": ("Resident Memory", "常驻内存"),
         "desc.virMem": ("Virtual Memory", "虚拟内存"),
         "desc.threads": ("Threads", "线程数"),
+        "desc.connections": ("Connections", "连接数"),
         "desc.prio": ("Priority/Nice", "优先级/Nice"),
         "desc.command": ("Command", "命令"),
         

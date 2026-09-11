@@ -4,24 +4,26 @@ import Darwin
 // Constants not available in Swift's Darwin module
 private let PROC_PIDPATHINFO_MAXSIZE: Int32 = 4096
 private let defaultGetpwuidBufferSize = 16_384
-// Connection-count cache TTLs. The fetcher is the single biggest CPU consumer
-// because it runs `proc_pidinfo` per process and per file descriptor.
-//
-// Tradeoff: most macOS processes never open a network socket, so we recheck
-// zero-connection processes at 2x the active-process interval. Processes that
-// already hold sockets stay on the original 15 s schedule — those are the ones
-// users typically care about for "live" updates. A previously-zero process that
-// suddenly opens a socket may take up to `zeroConnectionRefreshIntervalNs`
-// before its count updates in the auto-refresh path; manual refresh (⌘R) sets
-// `forceRefreshConnections` and bypasses the cache entirely for the impatient
-// case.
-private let activeConnectionRefreshIntervalNs: UInt64 = 15_000_000_000  // 15s for processes with sockets
-private let zeroConnectionRefreshIntervalNs: UInt64 = 30_000_000_000    // 30s for processes with no sockets
-private let maxConnectionWorkers = 4
+
+/// CPU% is the ratio of consumed CPU time to wall time between two samples of the
+/// same process. A manual refresh (⌘R) landing a few hundred milliseconds after an
+/// automatic tick would otherwise compute the ratio over a window so short that a
+/// single scheduler quantum reads as tens of percent. Below this window we keep the
+/// older baseline sample and carry the previously displayed value forward, so the
+/// figure always reflects at least this much wall time — the same idea as
+/// Activity Monitor's fixed update interval.
+private let minimumCPUSampleWindowNs: UInt64 = 1_000_000_000
+
+/// Upper bound on the sampling window. Sampling is suspended while the window is
+/// hidden, so the first refresh after it reappears could otherwise average CPU
+/// time over minutes and present that as "current" usage. Past this bound the
+/// stale baseline is discarded, the row shows 0 like a first sample, and the
+/// quick follow-up refresh scheduled on unhide produces a fresh short-window value.
+private let maximumCPUSampleWindowNs: UInt64 = 30_000_000_000
 
 // MARK: - CPU Sample Data
 
-private struct ProcessCacheKey: Hashable {
+private struct ProcessCacheKey: Hashable, Sendable {
     let startSeconds: Int
     let startMicroseconds: Int
     let uid: uid_t
@@ -29,32 +31,27 @@ private struct ProcessCacheKey: Hashable {
 }
 
 /// Structure to hold CPU sampling data for calculating usage percentage
-private struct CPUSample {
+private struct CPUSample: Sendable {
     let cacheKey: ProcessCacheKey
     let totalCPUTime: UInt64  // pti_total_user + pti_total_system (Mach absolute time)
-    let timestamp: UInt64     // Mach absolute time
+    let timestamp: UInt64     // Mach absolute time, taken alongside the task-info call
+    let cpuUsage: Double      // Last displayed CPU%, carried forward across short windows
 }
 
-private struct ProcessMetadataCacheEntry {
+private struct ProcessMetadataCacheEntry: Sendable {
     let cacheKey: ProcessCacheKey
     let name: String
     let user: String
     let command: String
+    let isApp: Bool
 }
 
-private struct ConnectionCountCacheEntry {
-    let cacheKey: ProcessCacheKey
-    let count: Int
-    let refreshedAt: UInt64
-}
-
-private struct ProcessFetchSnapshot {
+private struct ProcessFetchSnapshot: Sendable {
     let processes: [ProcessInfo]
     let hierarchy: [ProcessInfo]
     let samples: [pid_t: CPUSample]
     let metadataCache: [pid_t: ProcessMetadataCacheEntry]
     let userCache: [uid_t: String]
-    let connectionCache: [pid_t: ConnectionCountCacheEntry]
 }
 
 private func resolveUsername(for uid: uid_t, cache: inout [uid_t: String]) -> String {
@@ -80,6 +77,17 @@ private func resolveUsername(for uid: uid_t, cache: inout [uid_t: String]) -> St
     return username
 }
 
+/// Mach absolute time → nanoseconds conversion factor, resolved once.
+private let machTimebase: mach_timebase_info_data_t = {
+    var info = mach_timebase_info_data_t()
+    mach_timebase_info(&info)
+    return info
+}()
+
+private func machTicksToNanoseconds(_ ticks: UInt64) -> UInt64 {
+    ticks * UInt64(machTimebase.numer) / UInt64(machTimebase.denom)
+}
+
 // MARK: - Process Fetching (nonisolated)
 
 /// Helper enum with static methods for fetching processes (not MainActor isolated)
@@ -93,23 +101,22 @@ private enum ProcessFetcher {
         return Int(max(count, 1))
     }()
 
-    /// Fetch all processes using sysctl with CPU usage calculation
+    /// Fetch all processes using sysctl with CPU usage calculation.
+    ///
+    /// Everything — task metrics, metadata and the socket count — is gathered in a
+    /// single pass over the process table. Measured on a ~740-process system the
+    /// whole pass costs about 5 ms, so nothing here is worth caching across
+    /// refreshes except the per-process metadata (path lookups) and usernames.
     static func fetchAllProcesses(
         previousSamples: [pid_t: CPUSample],
         metadataCache: [pid_t: ProcessMetadataCacheEntry],
-        userCache: [uid_t: String],
-        connectionCache: [pid_t: ConnectionCountCacheEntry],
-        refreshConnections: Bool
-    ) async -> ProcessFetchSnapshot {
+        userCache: [uid_t: String]
+    ) -> ProcessFetchSnapshot {
         var result: [ProcessInfo] = []
         var newSamples: [pid_t: CPUSample] = [:]
         var updatedMetadataCache = metadataCache
         var updatedUserCache = userCache
-        var currentKeys: [pid_t: ProcessCacheKey] = [:]
 
-        // Use mach_absolute_time for consistent timing with pti_total_user/system.
-        let currentTime = mach_absolute_time()
-        let nowNs = DispatchTime.now().uptimeNanoseconds
         let cpuCores = Double(cpuCoreCount)
 
         // Get process list using sysctl
@@ -123,8 +130,7 @@ private enum ProcessFetcher {
                 hierarchy: [],
                 samples: previousSamples,
                 metadataCache: updatedMetadataCache,
-                userCache: updatedUserCache,
-                connectionCache: connectionCache
+                userCache: updatedUserCache
             )
         }
 
@@ -139,12 +145,13 @@ private enum ProcessFetcher {
                 hierarchy: [],
                 samples: previousSamples,
                 metadataCache: updatedMetadataCache,
-                userCache: updatedUserCache,
-                connectionCache: connectionCache
+                userCache: updatedUserCache
             )
         }
 
         let actualCount = size / MemoryLayout<kinfo_proc>.stride
+        result.reserveCapacity(actualCount)
+        newSamples.reserveCapacity(actualCount)
 
         for i in 0..<actualCount {
             let proc = procList[i]
@@ -159,7 +166,6 @@ private enum ProcessFetcher {
                 }
             }
             let cacheKey = processCacheKey(for: proc, fallbackName: fallbackName)
-            currentKeys[pid] = cacheKey
 
             let metadata = resolveMetadata(
                 pid: pid,
@@ -169,10 +175,13 @@ private enum ProcessFetcher {
                 userCache: &updatedUserCache
             )
 
-            // Get task info for CPU and memory
+            // Get task info for CPU and memory. The timestamp is taken right next
+            // to the syscall so every process gets its own accurate sample time
+            // instead of sharing one taken before the loop started.
             var taskInfo = proc_taskinfo()
             let taskInfoSize = MemoryLayout<proc_taskinfo>.size
             let ret = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(taskInfoSize))
+            let sampleTime = mach_absolute_time()
             let hasTaskMetrics = ret == taskInfoSize
 
             var cpuUsage: Double = 0.0
@@ -183,19 +192,31 @@ private enum ProcessFetcher {
 
             if hasTaskMetrics {
                 let totalCPUTime = taskInfo.pti_total_user + taskInfo.pti_total_system
-                newSamples[pid] = CPUSample(cacheKey: cacheKey, totalCPUTime: totalCPUTime, timestamp: currentTime)
+                var sample = CPUSample(cacheKey: cacheKey, totalCPUTime: totalCPUTime, timestamp: sampleTime, cpuUsage: 0)
 
                 if let prevSample = previousSamples[pid],
                    prevSample.cacheKey == cacheKey,
                    totalCPUTime >= prevSample.totalCPUTime,
-                   currentTime > prevSample.timestamp {
+                   sampleTime > prevSample.timestamp {
                     let cpuTimeDelta = totalCPUTime - prevSample.totalCPUTime
-                    let realTimeDelta = currentTime - prevSample.timestamp
+                    let realTimeDelta = sampleTime - prevSample.timestamp
 
-                    // Both deltas advance in Mach absolute time units, so their ratio is CPU%.
-                    cpuUsage = (Double(cpuTimeDelta) / Double(realTimeDelta)) * 100.0
-                    cpuUsage = max(0, min(cpuUsage, cpuCores * 100.0))
+                    let windowNs = machTicksToNanoseconds(realTimeDelta)
+                    if windowNs < minimumCPUSampleWindowNs {
+                        // Window too short for a meaningful ratio: keep the old
+                        // baseline and redisplay the last good value.
+                        cpuUsage = prevSample.cpuUsage
+                        sample = prevSample
+                    } else if windowNs <= maximumCPUSampleWindowNs {
+                        // Both deltas advance in Mach absolute time units, so their ratio is CPU%.
+                        cpuUsage = (Double(cpuTimeDelta) / Double(realTimeDelta)) * 100.0
+                        cpuUsage = max(0, min(cpuUsage, cpuCores * 100.0))
+                        sample = CPUSample(cacheKey: cacheKey, totalCPUTime: totalCPUTime, timestamp: sampleTime, cpuUsage: cpuUsage)
+                    }
+                    // Otherwise the baseline is too old to describe the present;
+                    // `sample` already holds a fresh baseline with cpuUsage 0.
                 }
+                newSamples[pid] = sample
 
                 residentMemory = taskInfo.pti_resident_size
                 virtualMemory = taskInfo.pti_virtual_size
@@ -205,6 +226,15 @@ private enum ProcessFetcher {
                 // `pti_priority` is the closest public approximation available alongside the
                 // rest of the task metrics we already fetch.
                 priority = taskInfo.pti_priority
+            }
+
+            // Socket count. The kernel only exposes descriptor tables of processes
+            // we own (unless running as root); for the rest this yields
+            // `.unavailable`, which the UI renders as "--" rather than a false 0.
+            let connectionCount: Int?
+            switch NetworkConnectionFetcher.connectionCount(for: pid) {
+            case .count(let value): connectionCount = value
+            case .unavailable: connectionCount = nil
             }
 
             result.append(
@@ -220,59 +250,30 @@ private enum ProcessFetcher {
                     priority: priority,
                     nice: Int32(proc.kp_proc.p_nice),
                     command: metadata.command,
-                    connectionCount: 0,
+                    connectionCount: connectionCount,
                     hasTaskMetrics: hasTaskMetrics,
+                    isApp: metadata.isApp,
                     children: []
                 )
             )
         }
 
-        let livePIDs = Set(result.map(\.id))
-        updatedMetadataCache = updatedMetadataCache.filter { livePIDs.contains($0.key) }
-
-        var counts: [pid_t: Int] = [:]
-        var updatedConnectionCache = connectionCache.filter { livePIDs.contains($0.key) }
-        var staleConnectionPIDs: [pid_t] = []
-        staleConnectionPIDs.reserveCapacity(result.count)
-
-        for proc in result {
-            guard let cacheKey = currentKeys[proc.id] else { continue }
-
-            if !refreshConnections,
-               let cached = updatedConnectionCache[proc.id],
-               cached.cacheKey == cacheKey,
-               nowNs >= cached.refreshedAt {
-                let ttl = cached.count == 0 ? zeroConnectionRefreshIntervalNs
-                                            : activeConnectionRefreshIntervalNs
-                if nowNs - cached.refreshedAt < ttl {
-                    counts[proc.id] = cached.count
-                    continue
-                }
-            }
-            staleConnectionPIDs.append(proc.id)
+        // Drop metadata for processes that have exited so the cache tracks the
+        // live process table instead of growing for the lifetime of the app.
+        if updatedMetadataCache.count != result.count {
+            let livePIDs = Set(result.map(\.id))
+            updatedMetadataCache = updatedMetadataCache.filter { livePIDs.contains($0.key) }
         }
 
-        let fetchedCounts = await fetchConnectionCounts(for: staleConnectionPIDs)
-        for (pid, count) in fetchedCounts {
-            guard let cacheKey = currentKeys[pid] else { continue }
-            counts[pid] = count
-            updatedConnectionCache[pid] = ConnectionCountCacheEntry(cacheKey: cacheKey, count: count, refreshedAt: nowNs)
-        }
+        result.sort { $0.id < $1.id }
 
-        let finalResult = result.map { proc in
-            var updated = proc
-            updated.connectionCount = counts[proc.id] ?? 0
-            return updated
-        }.sorted { $0.id < $1.id }
-
-        let hierarchy = buildHierarchy(from: finalResult)
+        let hierarchy = buildHierarchy(from: result)
         return ProcessFetchSnapshot(
-            processes: finalResult,
+            processes: result,
             hierarchy: hierarchy,
             samples: newSamples,
             metadataCache: updatedMetadataCache,
-            userCache: updatedUserCache,
-            connectionCache: updatedConnectionCache
+            userCache: updatedUserCache
         )
     }
 
@@ -341,40 +342,6 @@ private enum ProcessFetcher {
         return processes.compactMap { filterNode($0) }
     }
 
-    private static func fetchConnectionCounts(for pids: [pid_t]) async -> [pid_t: Int] {
-        guard !pids.isEmpty else { return [:] }
-
-        let workerCount = max(1, min(min(cpuCoreCount, maxConnectionWorkers), pids.count))
-        let chunkSize = max(1, (pids.count + workerCount - 1) / workerCount)
-
-        return await withTaskGroup(of: [pid_t: Int].self) { group in
-            for start in stride(from: 0, to: pids.count, by: chunkSize) {
-                let end = min(start + chunkSize, pids.count)
-                let chunk = Array(pids[start..<end])
-
-                group.addTask {
-                    var partial: [pid_t: Int] = [:]
-                    partial.reserveCapacity(chunk.count)
-
-                    for pid in chunk {
-                        partial[pid] = NetworkConnectionFetcher.connectionCount(for: pid)
-                    }
-
-                    return partial
-                }
-            }
-
-            var counts: [pid_t: Int] = [:]
-            counts.reserveCapacity(pids.count)
-
-            for await partial in group {
-                counts.merge(partial) { _, new in new }
-            }
-
-            return counts
-        }
-    }
-
     private static func processCacheKey(for proc: kinfo_proc, fallbackName: String) -> ProcessCacheKey {
         let startTime = proc.kp_proc.p_un.__p_starttime
         return ProcessCacheKey(
@@ -402,7 +369,13 @@ private enum ProcessFetcher {
         let name = displayName(command: command, fallbackName: fallbackName)
         let user = resolveUsername(for: cacheKey.uid, cache: &userCache)
 
-        let metadata = ProcessMetadataCacheEntry(cacheKey: cacheKey, name: name, user: user, command: command)
+        let metadata = ProcessMetadataCacheEntry(
+            cacheKey: cacheKey,
+            name: name,
+            user: user,
+            command: command,
+            isApp: ProcessInfo.isAppBundleCommand(command)
+        )
         metadataCache[pid] = metadata
         return metadata
     }
@@ -420,12 +393,20 @@ private enum ProcessFetcher {
 @MainActor
 class ProcessMonitor: ObservableObject {
     @Published var processes: [ProcessInfo] = []
-    @Published var flatProcesses: [ProcessInfo] = []
+    /// Flat list backing the non-hierarchical filter. Not published: the view
+    /// layer only ever reads it through the memoized filter, and publishing it
+    /// would invalidate the SwiftUI body once more per refresh for nothing.
+    private var flatProcesses: [ProcessInfo] = []
+    /// True while the initial load or a user-initiated refresh is running.
+    /// Background timer ticks do not touch this: toggling it forced two extra
+    /// SwiftUI body evaluations and a spinner animation every five seconds.
     @Published var isLoading = false
     @Published var refreshCount: Int = 0
 
     private var timer: Timer?
     private var refreshInterval: TimeInterval = 5.0
+    private var autoRefreshEnabled = false
+    private var isWindowVisible = true
     private let currentUID: uid_t
     private let currentUser: String
 
@@ -433,10 +414,23 @@ class ProcessMonitor: ObservableObject {
     private var cpuSamples: [pid_t: CPUSample] = [:]
     private var metadataCache: [pid_t: ProcessMetadataCacheEntry] = [:]
     private var userCache: [uid_t: String] = [:]
-    private var connectionCache: [pid_t: ConnectionCountCacheEntry] = [:]
     private var isRefreshInFlight = false
     private var needsAnotherRefresh = false
-    private var pendingConnectionRefresh = false
+    private var pendingUserInitiated = false
+
+    // Memo for the filtered view. SwiftUI may evaluate ContentView's body
+    // several times per refresh and reads both the filtered list and the count;
+    // recomputing the filter over every process each time was the single
+    // largest CPU cost in the app.
+    private struct FilterMemoKey: Equatable {
+        let refreshCount: Int
+        let filter: ProcessFilter
+        let searchText: String
+        let hierarchical: Bool
+    }
+    private var filterMemoKey: FilterMemoKey?
+    private var filterMemoProcesses: [ProcessInfo] = []
+    private var filterMemoCount = 0
 
     init() {
         currentUID = getuid()
@@ -445,7 +439,7 @@ class ProcessMonitor: ObservableObject {
         userCache = initialUserCache
 
         Task {
-            await refresh(forceRefreshConnections: true, priority: .userInitiated)
+            await refresh(userInitiated: true)
         }
     }
 
@@ -457,11 +451,51 @@ class ProcessMonitor: ObservableObject {
     /// Start automatic refresh with specified interval
     func startAutoRefresh(interval: TimeInterval = 5.0) {
         refreshInterval = interval
-        stopAutoRefresh()
+        autoRefreshEnabled = true
+        scheduleTimerIfNeeded()
+    }
+
+    /// Stop automatic refresh
+    func stopAutoRefresh() {
+        autoRefreshEnabled = false
+        timer?.invalidate()
+        timer = nil
+    }
+
+    /// Called by the view layer when the hosting window becomes visible or is
+    /// hidden / minimized / fully occluded. Sampling a process table nobody can
+    /// see is pure waste, so the timer is suspended while invisible and a fresh
+    /// sample is taken the moment the window is shown again.
+    func setWindowVisible(_ visible: Bool) {
+        guard visible != isWindowVisible else { return }
+        isWindowVisible = visible
+
+        if visible {
+            scheduleTimerIfNeeded()
+            if autoRefreshEnabled {
+                // Sample now to re-establish CPU baselines (the old ones are
+                // likely past `maximumCPUSampleWindowNs`), then again shortly
+                // after so real CPU% appears without waiting a full interval.
+                Task {
+                    await refresh()
+                    try? await Task.sleep(nanoseconds: minimumCPUSampleWindowNs)
+                    await refresh()
+                }
+            }
+        } else {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
+
+    private func scheduleTimerIfNeeded() {
+        timer?.invalidate()
+        timer = nil
+        guard autoRefreshEnabled, isWindowVisible else { return }
 
         timer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                await self?.refresh(priority: .utility)
+                await self?.refresh()
             }
         }
         // Generous tolerance lets macOS coalesce this timer with other fires,
@@ -470,83 +504,100 @@ class ProcessMonitor: ObservableObject {
         timer?.tolerance = min(refreshInterval * 0.4, 2.0)
     }
 
-    /// Stop automatic refresh
-    func stopAutoRefresh() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    /// Manually refresh the process list
-    func refresh(forceRefreshConnections: Bool = false, priority: TaskPriority = .utility) async {
+    /// Refresh the process list.
+    /// - Parameter userInitiated: true for the initial load and explicit ⌘R;
+    ///   drives the loading indicator and a higher task priority.
+    func refresh(userInitiated: Bool = false) async {
         if isRefreshInFlight {
+            // Coalesce: the running pass will run one more time when it finishes.
             needsAnotherRefresh = true
-            pendingConnectionRefresh = pendingConnectionRefresh || forceRefreshConnections
+            pendingUserInitiated = pendingUserInitiated || userInitiated
             return
         }
 
         isRefreshInFlight = true
-        isLoading = true
+        defer { isRefreshInFlight = false }
 
-        let previousSamples = cpuSamples
-        let previousMetadataCache = metadataCache
-        let previousUserCache = userCache
-        let previousConnectionCache = connectionCache
+        var runAsUserInitiated = userInitiated
+        repeat {
+            if runAsUserInitiated {
+                isLoading = true
+            }
 
-        let snapshot = await Task.detached(priority: priority) {
-            await ProcessFetcher.fetchAllProcesses(
-                previousSamples: previousSamples,
-                metadataCache: previousMetadataCache,
-                userCache: previousUserCache,
-                connectionCache: previousConnectionCache,
-                refreshConnections: forceRefreshConnections
-            )
-        }.value
+            let previousSamples = cpuSamples
+            let previousMetadataCache = metadataCache
+            let previousUserCache = userCache
 
-        cpuSamples = snapshot.samples
-        metadataCache = snapshot.metadataCache
-        userCache = snapshot.userCache
-        connectionCache = snapshot.connectionCache
-        flatProcesses = snapshot.processes
-        processes = snapshot.hierarchy
-        refreshCount += 1
-        isLoading = false
-        isRefreshInFlight = false
+            let snapshot = await Task.detached(priority: runAsUserInitiated ? .userInitiated : .utility) {
+                ProcessFetcher.fetchAllProcesses(
+                    previousSamples: previousSamples,
+                    metadataCache: previousMetadataCache,
+                    userCache: previousUserCache
+                )
+            }.value
 
-        if needsAnotherRefresh {
-            let queuedConnectionRefresh = pendingConnectionRefresh
+            cpuSamples = snapshot.samples
+            metadataCache = snapshot.metadataCache
+            userCache = snapshot.userCache
+            flatProcesses = snapshot.processes
+            processes = snapshot.hierarchy
+            refreshCount += 1
+            if isLoading {
+                isLoading = false
+            }
+
+            // Drain any request that arrived mid-pass. Looping (rather than
+            // recursing) keeps the async frame depth flat however many
+            // coalesced requests come in.
+            guard needsAnotherRefresh else { break }
+            runAsUserInitiated = pendingUserInitiated
             needsAnotherRefresh = false
-            pendingConnectionRefresh = false
-            await refresh(forceRefreshConnections: queuedConnectionRefresh, priority: .utility)
-        }
+            pendingUserInitiated = false
+        } while true
     }
 
     /// Filter processes based on filter type
     func filteredProcesses(filter: ProcessFilter, searchText: String, hierarchical: Bool = true) -> [ProcessInfo] {
-        let matches: (ProcessInfo) -> Bool = { process in
-            self.matchesFilter(process, filter: filter) && self.matchesSearch(process, searchText: searchText)
-        }
-
-        if !hierarchical {
-            return Array(
-                flatProcesses
-                    .lazy
-                    .filter(matches)
-                    .map { proc in
-                        var flatProc = proc
-                        flatProc.children = []
-                        return flatProc
-                    }
-            )
-        }
-
-        return ProcessFetcher.filterTree(processes, predicate: matches)
+        ensureFilterMemo(filter: filter, searchText: searchText, hierarchical: hierarchical)
+        return filterMemoProcesses
     }
 
     /// Get filtered flat process count
-    func filteredCount(filter: ProcessFilter, searchText: String) -> Int {
-        flatProcesses.lazy.filter {
-            self.matchesFilter($0, filter: filter) && self.matchesSearch($0, searchText: searchText)
-        }.count
+    func filteredCount(filter: ProcessFilter, searchText: String, hierarchical: Bool = true) -> Int {
+        ensureFilterMemo(filter: filter, searchText: searchText, hierarchical: hierarchical)
+        return filterMemoCount
+    }
+
+    private func ensureFilterMemo(filter: ProcessFilter, searchText: String, hierarchical: Bool) {
+        let key = FilterMemoKey(refreshCount: refreshCount, filter: filter, searchText: searchText, hierarchical: hierarchical)
+        if filterMemoKey == key { return }
+
+        let lowercasedSearch = searchText.lowercased()
+        let matches: (ProcessInfo) -> Bool = { [self] process in
+            matchesFilter(process, filter: filter) &&
+                matchesSearch(process, searchText: searchText, lowercasedSearch: lowercasedSearch)
+        }
+
+        var count = 0
+        if hierarchical {
+            filterMemoProcesses = ProcessFetcher.filterTree(processes) { process in
+                let matched = matches(process)
+                if matched { count += 1 }
+                return matched
+            }
+        } else {
+            var flat: [ProcessInfo] = []
+            flat.reserveCapacity(flatProcesses.count)
+            for proc in flatProcesses where matches(proc) {
+                var flatProc = proc
+                flatProc.children = []
+                flat.append(flatProc)
+            }
+            count = flat.count
+            filterMemoProcesses = flat
+        }
+        filterMemoCount = count
+        filterMemoKey = key
     }
 
     private func matchesFilter(_ process: ProcessInfo, filter: ProcessFilter) -> Bool {
@@ -558,19 +609,21 @@ class ProcessMonitor: ObservableObject {
         case .system:
             return process.user != currentUser || process.id == 0
         case .apps:
-            return process.command.contains("/Applications/") || process.command.contains(".app/")
+            return process.isApp
         }
     }
 
-    private func matchesSearch(_ process: ProcessInfo, searchText: String) -> Bool {
+    private func matchesSearch(_ process: ProcessInfo, searchText: String, lowercasedSearch: String) -> Bool {
         guard !searchText.isEmpty else { return true }
 
-        let lowercasedSearch = searchText.lowercased()
         // ProcessInfo precomputes lowercase fields once per fetch — avoids
         // re-lowercasing both name and command for every process on every
-        // keystroke (the predicate also runs in two passes per body update).
-        return process.lowercaseName.contains(lowercasedSearch) ||
-            process.lowercaseCommand.contains(lowercasedSearch) ||
-            String(process.id).contains(searchText)
+        // keystroke. Matching on the UTF-8 views uses the standard library's
+        // collection search; `String.contains(_:)` with Foundation loaded routes
+        // through NSString-style option parsing, which profiled ~10x slower.
+        let needle = lowercasedSearch.utf8
+        return process.lowercaseName.utf8.contains(needle) ||
+            process.lowercaseCommand.utf8.contains(needle) ||
+            String(process.id).utf8.contains(searchText.utf8)
     }
 }

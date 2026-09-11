@@ -424,9 +424,17 @@ struct ProcessOutlineView: NSViewRepresentable {
             if identifier == .connectionsColumn {
                 if let button = cellView as? NSButton {
                     let count = process.connectionCount
-                    button.title = "\(count)"
+                    button.title = process.formattedConnectionCount
                     button.tag = Int(process.id)
-                    button.contentTintColor = count > 0 ? .linkColor : .labelColor
+                    // Unknown counts (other users' processes) are dimmed like the
+                    // other "--" metrics and not clickable: the detail window
+                    // could only ever be empty for them.
+                    button.isEnabled = count != nil
+                    if let count = count {
+                        button.contentTintColor = count > 0 ? .linkColor : .labelColor
+                    } else {
+                        button.contentTintColor = .secondaryLabelColor
+                    }
                 }
                 return cellView
             }
@@ -529,40 +537,59 @@ struct ProcessOutlineView: NSViewRepresentable {
         private func sortNodes(_ nodes: inout [ProcessNode], by descriptor: NSSortDescriptor) {
             let ascending = descriptor.ascending
             let key = descriptor.key ?? ""
-            
-            nodes.sort { a, b in
-                let result: Bool
+
+            // Three-way comparison on the selected column. Text columns compare
+            // the precomputed lowercase forms: `localizedCaseInsensitiveCompare`
+            // ran thousands of times per refresh and was one of the few
+            // measurable main-thread costs. Equal keys fall through to PID so
+            // rows with identical values (e.g. 0.0% CPU) keep a fixed order
+            // across refreshes instead of shuffling.
+            func compare(_ a: ProcessInfo, _ b: ProcessInfo) -> ComparisonResult {
                 switch key {
                 case "PIDColumn":
-                    result = a.process.id < b.process.id
+                    return compareValues(a.id, b.id)
                 case "NameColumn":
-                    result = a.process.name.localizedCaseInsensitiveCompare(b.process.name) == .orderedAscending
+                    return compareValues(a.lowercaseName, b.lowercaseName)
                 case "CPUColumn":
-                    result = a.process.cpuUsage < b.process.cpuUsage
+                    return compareValues(a.cpuUsage, b.cpuUsage)
                 case "UserColumn":
-                    result = a.process.user.localizedCaseInsensitiveCompare(b.process.user) == .orderedAscending
+                    return compareValues(a.user, b.user)
                 case "PriorityColumn":
-                    result = a.process.priority < b.process.priority
+                    return compareValues(a.priority, b.priority)
                 case "ResMemColumn":
-                    result = a.process.residentMemory < b.process.residentMemory
+                    return compareValues(a.residentMemory, b.residentMemory)
                 case "VirMemColumn":
-                    result = a.process.virtualMemory < b.process.virtualMemory
+                    return compareValues(a.virtualMemory, b.virtualMemory)
                 case "ThreadsColumn":
-                    result = a.process.threadCount < b.process.threadCount
+                    return compareValues(a.threadCount, b.threadCount)
                 case "ConnectionsColumn":
-                    result = a.process.connectionCount < b.process.connectionCount
+                    return compareValues(a.connectionSortValue, b.connectionSortValue)
                 case "CommandColumn":
-                    result = a.process.command.localizedCaseInsensitiveCompare(b.process.command) == .orderedAscending
+                    return compareValues(a.lowercaseCommand, b.lowercaseCommand)
                 default:
-                    result = a.process.id < b.process.id
+                    return compareValues(a.id, b.id)
                 }
-                return ascending ? result : !result
             }
-            
+
+            nodes.sort { lhs, rhs in
+                let a = lhs.process, b = rhs.process
+                switch compare(a, b) {
+                case .orderedAscending: return ascending
+                case .orderedDescending: return !ascending
+                case .orderedSame: return a.id < b.id
+                }
+            }
+
             // Sort children recursively
             for i in 0..<nodes.count {
                 sortNodes(&nodes[i].children, by: descriptor)
             }
+        }
+
+        private func compareValues<T: Comparable>(_ a: T, _ b: T) -> ComparisonResult {
+            if a < b { return .orderedAscending }
+            if a > b { return .orderedDescending }
+            return .orderedSame
         }
         
         // MARK: - Helper Methods

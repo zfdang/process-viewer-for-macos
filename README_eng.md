@@ -92,6 +92,8 @@ A native macOS application for viewing and monitoring system processes with a hi
 
 This app requires **disabled App Sandbox** to read all system process information. Without this, it would only see a limited subset of processes.
 
+macOS only lets a regular user read task info and file-descriptor tables of **their own** processes (`ps` and `top` see everything because they run setuid root). CPU, memory, thread and connection counts of other users' processes (e.g. root daemons) are therefore shown as `--`, meaning "not readable", rather than a misleading 0.
+
 ## Gatekeeper Notice
 
 This project is **free and open-source software** and is not enrolled in the Apple Developer Program ($99/year). As a result, macOS will display a warning: **"Cannot verify that this app is free from malware"** or **"The developer cannot be verified"**.
